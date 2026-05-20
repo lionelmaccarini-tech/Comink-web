@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "regions": ["cdg1"],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-files",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
