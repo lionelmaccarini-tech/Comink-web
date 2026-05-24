@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import { Toaster } from '@/components/ui/toaster'
 import { createServiceClient } from '@/lib/supabase/server'
+import AngeloChatClient from '@/components/chat/AngeloChatClient'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
+          <AngeloChatClient />
         </Toaster>
 
         {/* Google Analytics 4 */}

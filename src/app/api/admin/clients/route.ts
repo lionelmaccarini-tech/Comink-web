@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       discount_percent: body.discount_percent || 0,
       notes: body.notes || null,
       is_active: body.is_active ?? true,
+      billing_end_of_month: body.billing_end_of_month ?? false,
     })
     .select()
     .single()

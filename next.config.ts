@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  env: {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'media.base44.com' },

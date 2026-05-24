@@ -41,6 +41,7 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
   const [allowAlma,     setAllowAlma]     = useState(true)
   const [allowWire,     setAllowWire]     = useState(true)
   const [paymentDeadlineDays, setPaymentDeadlineDays] = useState<string>('')
+  const [billingEndOfMonth, setBillingEndOfMonth]     = useState(false)
   const [allowPickup,   setAllowPickup]   = useState(true)
   const [allowParcel,   setAllowParcel]   = useState(true)
   const [allowExpress,  setAllowExpress]  = useState(true)
@@ -81,6 +82,7 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
         setAllowWire(pm.includes('wire'))
       }
       setPaymentDeadlineDays(client.payment_deadline_days != null ? String(client.payment_deadline_days) : '')
+      setBillingEndOfMonth(client.billing_end_of_month ?? false)
 
       const dm: string[] | null = client.delivery_methods_override ?? null
       if (dm !== null) {
@@ -117,6 +119,7 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
         discount_percent: Number(form.discount_percent) || 0,
         payment_methods_override: paymentOverride,
         payment_deadline_days: deadlineDays,
+        billing_end_of_month: billingEndOfMonth,
         delivery_methods_override: deliveryOverride,
       }
       const method = client?.id ? 'PUT' : 'POST'
@@ -301,7 +304,7 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
               {/* Délai de paiement */}
               <div className="border-t border-slate-100 pt-4">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Délai de paiement</p>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-4">
                   <input
                     type="number"
                     min="0"
@@ -312,6 +315,24 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
                   />
                   <span className="text-sm text-slate-500">jours (vide = défaut global)</span>
                 </div>
+
+                {/* Facturation fin de mois */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={billingEndOfMonth}
+                    onChange={e => setBillingEndOfMonth(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                      Facturation fin de mois
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Les commandes du mois sont regroupées et facturées en une seule fois à la fin du mois, au lieu d'être facturées individuellement.
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Modes de livraison */}
