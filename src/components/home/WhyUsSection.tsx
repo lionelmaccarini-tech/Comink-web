@@ -20,7 +20,7 @@ const features = [
   {
     icon: HeadphonesIcon,
     title: 'Support 7j/7',
-    desc: "Roger, notre IA, répond en continu. L'équipe humaine prend le relais.",
+    desc: "Angelo, notre IA, répond en continu. L'équipe humaine prend le relais.",
   },
 ]
 

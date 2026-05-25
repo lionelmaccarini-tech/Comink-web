@@ -251,6 +251,11 @@ export default function Header() {
                               <Factory className="w-4 h-4 text-slate-400" /> Production
                             </Link>
                           )}
+                          {isStaff && (
+                            <Link href="/production/jde" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
+                              <Zap className="w-4 h-4 text-yellow-500" /> JDE Admin
+                            </Link>
+                          )}
 
                           {isAdmin && (
                             <>
@@ -326,6 +331,7 @@ export default function Header() {
                   <Link href="/compte" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Mon compte</Link>
                   {isStaff && <Link href="/admin" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Administration</Link>}
                   {isStaff && <Link href="/production" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Production</Link>}
+                  {isStaff && <Link href="/production/jde" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">⚡ JDE Admin</Link>}
                   {isAdmin && <Link href="/admin?tab=parametres" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Paramètres</Link>}
                   <button onClick={handleLogout} className="block w-full text-left text-sm font-semibold py-2.5 text-red-400 border-b border-sky-900">Déconnexion</button>
                 </>

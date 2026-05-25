@@ -5,6 +5,22 @@ import { FileText, Download, ChevronRight, ChevronUp, ChevronDown } from 'lucide
 import { cn } from '@/lib/utils'
 import type { ProductionLine, ProductionStatus, StaffMember } from './types'
 
+// ── Score badge ───────────────────────────────────────────────────────────────
+function AnalysisScoreBadge({ analysis }: { analysis: NonNullable<ProductionLine['file_analysis']> }) {
+  const { score, status } = analysis
+  const cls = status === 'error'
+    ? 'bg-red-100 text-red-700 border-red-200'
+    : status === 'warning'
+      ? 'bg-amber-100 text-amber-700 border-amber-200'
+      : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  const icon = status === 'error' ? '✗' : status === 'warning' ? '⚠' : '✓'
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border', cls)}>
+      {icon} {score}%
+    </span>
+  )
+}
+
 interface Props {
   lines: ProductionLine[]
   statuses: ProductionStatus[]
@@ -104,6 +120,7 @@ export default function ListView({ lines, statuses, staff, onUpdate, onSelect, u
               <Th label="Qté" k="quantity" center />
               <Th label="Statut" k="status_id" />
               <Th label="Assigné" k="assignee_id" />
+              <Th label="Analyse" />
               <Th label="Échéance" k="due_date" />
               <th className="px-4 py-3" />
             </tr>
@@ -189,6 +206,17 @@ export default function ListView({ lines, statuses, staff, onUpdate, onSelect, u
                         <option key={s.id} value={s.id}>{s.full_name || s.id}</option>
                       ))}
                     </select>
+                  </td>
+
+                  {/* Analyse score */}
+                  <td className="px-4 py-3">
+                    {line.file_analysis ? (
+                      <AnalysisScoreBadge analysis={line.file_analysis} />
+                    ) : line.file_url ? (
+                      <span className="text-xs text-slate-300 italic">—</span>
+                    ) : (
+                      <span className="text-xs text-slate-200">—</span>
+                    )}
                   </td>
 
                   {/* Due date */}

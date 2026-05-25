@@ -6,7 +6,7 @@ import ToutPourSection from '@/components/home/ToutPourSection'
 import WhyUsSection from '@/components/home/WhyUsSection'
 import UrgenceSection from '@/components/home/UrgenceSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
-import RogerSection from '@/components/home/RogerSection'
+import AngeloSection from '@/components/home/AngeloSection'
 import CtaFinalSection from '@/components/home/CtaFinalSection'
 
 export default function HomePage() {
@@ -23,7 +23,7 @@ export default function HomePage() {
       <WhyUsSection />
       <UrgenceSection />
       <TestimonialsSection />
-      <RogerSection />
+      <AngeloSection />
       <CtaFinalSection />
     </>
   )

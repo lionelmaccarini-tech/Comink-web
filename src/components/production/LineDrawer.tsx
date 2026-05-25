@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X, Download, FileText, ZoomIn } from 'lucide-react'
+import { X, Download, FileText, ZoomIn, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductionLine, ProductionStatus, StaffMember } from './types'
+import FileAnalysisResult from '@/components/crm/FileAnalysisResult'
 
 interface Props {
   line: ProductionLine
@@ -18,11 +19,30 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
   const canEditDate = userRole === 'admin'
   const [notes, setNotes] = useState(line.notes ?? '')
   const [lightbox, setLightbox] = useState(false)
+  const [analysing, setAnalysing] = useState(false)
+  const [analysisError, setAnalysisError] = useState('')
 
   // Sync if line changes
   useEffect(() => {
     setNotes(line.notes ?? '')
+    setAnalysisError('')
   }, [line.id, line.notes])
+
+  async function handleReanalyze() {
+    setAnalysing(true)
+    setAnalysisError('')
+    try {
+      const res = await fetch(`/api/production/lines/${line.id}/analyze`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Analyse échouée')
+      // Trigger parent refresh via onUpdate with the new analysis
+      onUpdate(line.id, { file_analysis: data.analysis })
+    } catch (err: any) {
+      setAnalysisError(err.message || 'Erreur lors de l\'analyse')
+    } finally {
+      setAnalysing(false)
+    }
+  }
 
   function handleNotesBlur() {
     if (notes !== (line.notes ?? '')) {
@@ -108,6 +128,31 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
               </div>
             )}
           </div>
+
+          {/* ── Analyse du fichier ── */}
+          {line.file_url && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Analyse du fichier</p>
+                <button
+                  onClick={handleReanalyze}
+                  disabled={analysing}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', analysing && 'animate-spin')} />
+                  {analysing ? 'Analyse…' : line.file_analysis ? 'Re-analyser' : 'Analyser'}
+                </button>
+              </div>
+              <FileAnalysisResult
+                result={line.file_analysis ?? null}
+                loading={analysing}
+                error={analysisError || undefined}
+              />
+              {!line.file_analysis && !analysing && !analysisError && (
+                <p className="text-xs text-slate-400 italic">Aucune analyse — cliquez sur "Analyser" pour lancer la vérification.</p>
+              )}
+            </div>
+          )}
 
           {/* Product info */}
           <div>

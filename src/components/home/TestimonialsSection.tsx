@@ -17,7 +17,7 @@ const testimonials = [
   {
     name: 'Sophie L.',
     company: 'Responsable marketing',
-    text: "J'ai eu un besoin urgent un vendredi soir. Roger (le chatbot) a répondu en quelques minutes, et la commande était prête le lundi. Bluffant.",
+    text: "J'ai eu un besoin urgent un vendredi soir. Angelo (le chatbot) a répondu en quelques minutes, et la commande était prête le lundi. Bluffant.",
     rating: 5,
   },
 ]

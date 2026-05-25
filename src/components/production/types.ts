@@ -32,6 +32,13 @@ export interface ProductionLine {
   notes?: string | null
   finitions_summary?: Array<{ label: string; value: string }> | null
   delai_label?: string | null
+  file_analysis?: {
+    score: number
+    status: 'ok' | 'warning' | 'error'
+    summary: string
+    checks: Array<{ id: string; label: string; status: 'ok' | 'warning' | 'error'; message: string; detail?: string }>
+    recommendations?: string[]
+  } | null
   sort_order: number
   created_at: string
   updated_at: string

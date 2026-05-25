@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Edit3, CheckCircle, XCircle, Clock, MessageSquare, Phone, Mail, Notebook, Activity } from 'lucide-react'
+import { ArrowLeft, Send, Edit3, CheckCircle, XCircle, Clock, MessageSquare, Phone, Mail, Notebook, Activity, Package } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import ConvertToOrderModal from './ConvertToOrderModal'
 
 const fmt    = (n: number) => new Intl.NumberFormat('fr-BE', { style: 'currency', currency: 'EUR' }).format(n)
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -36,6 +37,8 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
   const [newNote,    setNewNote]    = useState('')
   const [noteType,   setNoteType]   = useState<'note' | 'call' | 'meeting'>('note')
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null)
+  const [showConvertModal, setShowConvertModal] = useState(false)
+  const [convertedOrderNumber, setConvertedOrderNumber] = useState<string | null>(null)
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => setCurrentUser(user ? { id: user.id } : null))
@@ -97,6 +100,19 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
 
   return (
     <div>
+      {showConvertModal && quote && (
+        <ConvertToOrderModal
+          quote={quote}
+          currentUserId={currentUser?.id}
+          onClose={() => setShowConvertModal(false)}
+          onConverted={(orderNumber) => {
+            setConvertedOrderNumber(orderNumber)
+            setShowConvertModal(false)
+            reload()
+          }}
+        />
+      )}
+
       {showSentBanner && (
         <div className="mb-5 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-emerald-700 text-sm font-medium">
           <CheckCircle className="w-4 h-4" /> Devis envoyé avec succès à {quote.client_email}
@@ -266,6 +282,21 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
           <div className="bg-white rounded-xl border border-slate-200 p-5">
             <h3 className="font-semibold text-slate-700 mb-3">Actions rapides</h3>
             <div className="space-y-2">
+
+              {/* Bon de commande */}
+              {quote.pipeline_stage !== 'won' && (
+                <button onClick={() => setShowConvertModal(true)}
+                  className="w-full flex items-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-2.5 rounded-lg transition-colors">
+                  <Package className="w-4 h-4" /> Créer un bon de commande
+                </button>
+              )}
+              {convertedOrderNumber && (
+                <div className="flex items-center gap-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 rounded-lg">
+                  <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  Bon de commande <strong>{convertedOrderNumber}</strong> créé
+                </div>
+              )}
+
               {quote.pipeline_stage !== 'won' && (
                 <button onClick={() => markStage('won')}
                   className="w-full flex items-center gap-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2.5 rounded-lg transition-colors">

@@ -208,6 +208,7 @@ export default function AngeloChat() {
       {/* Floating button */}
       <button
         onClick={handleOpen}
+        data-angelo-trigger
         aria-label="Ouvrir le chat"
         className={`
           fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg

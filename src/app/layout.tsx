@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
+import { headers } from 'next/headers'
 import './globals.css'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
@@ -47,36 +48,46 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const gaId   = seo.seo_ga_id   as string | undefined
   const gscCode = seo.seo_gsc_code as string | undefined
 
+  // Masquer le shell Comink sur les pages JDE (layout propre jaune/rouge)
+  const headersList = await headers()
+  const pathname = headersList.get('x-pathname') || ''
+  const isJDE = pathname.startsWith('/jde')
+
   return (
     <html lang="fr" className={inter.variable}>
       <head>
-        {/* Google Search Console verification */}
         {gscCode && <meta name="google-site-verification" content={gscCode} />}
       </head>
-      <body className="min-h-screen bg-sky-50 flex flex-col antialiased">
-        <Toaster>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          <AngeloChatClient />
-        </Toaster>
+      {isJDE ? (
+        // Pages JDE : pas de header/footer/chat Comink
+        <body className="antialiased">
+          {children}
+        </body>
+      ) : (
+        <body className="min-h-screen bg-sky-50 flex flex-col antialiased">
+          <Toaster>
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <AngeloChatClient />
+          </Toaster>
 
-        {/* Google Analytics 4 */}
-        {gaId && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-              strategy="afterInteractive"
-            />
-            <Script id="ga4-init" strategy="afterInteractive">{`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${gaId}', { page_path: window.location.pathname });
-            `}</Script>
-          </>
-        )}
-      </body>
+          {gaId && (
+            <>
+              <Script
+                src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+                strategy="afterInteractive"
+              />
+              <Script id="ga4-init" strategy="afterInteractive">{`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${gaId}', { page_path: window.location.pathname });
+              `}</Script>
+            </>
+          )}
+        </body>
+      )}
     </html>
   )
 }

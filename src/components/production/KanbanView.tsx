@@ -5,6 +5,22 @@ import { FileText, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductionLine, ProductionStatus, StaffMember } from './types'
 
+// ── Score badge ───────────────────────────────────────────────────────────────
+function AnalysisScoreBadge({ analysis }: { analysis: NonNullable<ProductionLine['file_analysis']> }) {
+  const { score, status } = analysis
+  const cls = status === 'error'
+    ? 'bg-red-100 text-red-700 border-red-200'
+    : status === 'warning'
+      ? 'bg-amber-100 text-amber-700 border-amber-200'
+      : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+  const icon = status === 'error' ? '✗' : status === 'warning' ? '⚠' : '✓'
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border', cls)}>
+      {icon} {score}%
+    </span>
+  )
+}
+
 interface Props {
   lines: ProductionLine[]
   statuses: ProductionStatus[]
@@ -111,7 +127,19 @@ function LineCard({ line, onClick, onUpdate, canEditDate, selected, onToggleSele
         </span>
       </div>
 
-      <p className="text-[10px] text-slate-500 truncate mb-2">{line.client_name}</p>
+      <p className="text-[10px] text-slate-500 truncate mb-1.5">{line.client_name}</p>
+
+      {/* Score analyse fichier */}
+      {line.file_analysis && (
+        <div className="mb-2">
+          <AnalysisScoreBadge analysis={line.file_analysis} />
+          {line.file_analysis.status === 'error' && (
+            <p className="text-[9px] text-red-600 font-semibold mt-0.5 truncate">
+              {line.file_analysis.summary}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Date enlèvement / livraison */}
       <div
