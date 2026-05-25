@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, ShoppingCart, ChevronDown, User, Phone, Settings, LayoutDashboard, LogOut, Users, Zap } from 'lucide-react'
+import { Menu, X, ShoppingCart, ChevronDown, User, Phone, Settings, LayoutDashboard, LogOut, Users, Zap, Factory } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -246,6 +246,12 @@ export default function Header() {
                             </Link>
                           )}
 
+                          {isStaff && (
+                            <Link href="/production" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
+                              <Factory className="w-4 h-4 text-slate-400" /> Production
+                            </Link>
+                          )}
+
                           {isAdmin && (
                             <>
                               <Link href="/admin?tab=clients" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors">
@@ -319,6 +325,7 @@ export default function Header() {
                   </div>
                   <Link href="/compte" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Mon compte</Link>
                   {isStaff && <Link href="/admin" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Administration</Link>}
+                  {isStaff && <Link href="/production" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Production</Link>}
                   {isAdmin && <Link href="/admin?tab=parametres" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Paramètres</Link>}
                   <button onClick={handleLogout} className="block w-full text-left text-sm font-semibold py-2.5 text-red-400 border-b border-sky-900">Déconnexion</button>
                 </>
