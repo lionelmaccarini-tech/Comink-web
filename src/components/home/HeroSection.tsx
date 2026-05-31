@@ -2,8 +2,11 @@
 
 import React, { useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowRight, MapPin, Star, Zap } from 'lucide-react'
+import { ArrowRight, MapPin, Zap } from 'lucide-react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+
+// ── Marquee items ─────────────────────────────────────────────────────────────
+const MARQUEE_ITEMS = ['BANDEROLES','BÂCHES','ROLL-UP','DIBOND','FOREX','ADHÉSIFS','DRAPEAUX','PANNEAUX','TOILES','TEXTILE','KAKÉMONOS','VITROPHANIE']
 
 // ── Photos — signage / printing / grand format context ───────────────────────
 
@@ -67,7 +70,7 @@ function ShowcaseGrid() {
         {/* Grande photo — span 2 rows */}
         <div
           className="relative rounded-2xl overflow-hidden row-span-2"
-          style={{ height: 460 }}
+          style={{ height: 380 }}
         >
           <img
             src={SHOWCASE[0].img}
@@ -91,7 +94,7 @@ function ShowcaseGrid() {
             <div
               key={item.label}
               className="relative rounded-2xl overflow-hidden flex-1"
-              style={{ height: 220 }}
+              style={{ height: 182 }}
             >
               <img
                 src={item.img}
@@ -143,7 +146,8 @@ function ShowcaseGrid() {
 export default function HeroSection() {
   return (
     <section
-      className="relative bg-[#080c14] text-white overflow-hidden min-h-[92vh] flex flex-col"
+      className="relative bg-[#080c14] text-white overflow-hidden flex flex-col"
+      style={{ height: 'calc(100dvh - 100px)', minHeight: '560px' }}
     >
       {/* Dot grid */}
       <div
@@ -161,13 +165,13 @@ export default function HeroSection() {
 
       {/* ── Contenu principal ── */}
       <div className="relative flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center">
-        <div className="w-full grid lg:grid-cols-2 gap-12 lg:gap-16 py-16 lg:py-20 items-center">
+        <div className="w-full grid lg:grid-cols-2 gap-8 lg:gap-12 py-6 lg:py-8 items-center">
 
           {/* ── Colonne texte ── */}
           <div className="flex flex-col justify-center self-center">
 
             {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 mb-6 w-fit">
+            <div className="inline-flex items-center gap-2 mb-3 w-fit">
               <span className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/25 text-blue-400 text-xs font-bold px-3 py-1.5 rounded-full tracking-wide">
                 <MapPin className="w-3 h-3" />
                 LIÈGE · BELGIQUE · DEPUIS 2014
@@ -175,7 +179,7 @@ export default function HeroSection() {
             </div>
 
             {/* H1 — editorial bold */}
-            <h1 className="text-[3.5rem] sm:text-[5rem] lg:text-[6rem] font-black tracking-[-0.03em] leading-[0.95] mb-6">
+            <h1 className="text-[2.8rem] sm:text-[4rem] lg:text-[4.8rem] font-black tracking-[-0.03em] leading-[0.92] mb-4">
               <motion.span
                 className="block text-white"
                 initial={{ opacity: 1, y: 30 }}
@@ -211,17 +215,17 @@ export default function HeroSection() {
             </h1>
 
             {/* Sous-titre */}
-            <p className="text-base text-slate-400 leading-relaxed mb-8 max-w-md">
+            <p className="text-sm text-slate-400 leading-relaxed mb-4 max-w-md">
               Banderoles, bâches, roll-up&hellip;{' '}
               <span className="text-slate-300 font-medium">Tout en local à Liège.</span>{' '}
               Même les urgences.
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-wrap gap-3 mb-7">
+            <div className="flex flex-wrap gap-3 mb-4">
               <Link
                 href="/catalogue"
-                className="group relative flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-7 py-4 rounded-xl transition-all text-sm shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 overflow-hidden"
+                className="group relative flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all text-sm shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 overflow-hidden"
               >
                 <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg]" />
                 Voir nos produits
@@ -229,46 +233,28 @@ export default function HeroSection() {
               </Link>
               <Link
                 href="/devis"
-                className="flex items-center gap-2 border border-slate-700 hover:border-slate-500 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-bold px-7 py-4 rounded-xl transition-all text-sm hover:-translate-y-0.5"
+                className="flex items-center gap-2 border border-slate-700 hover:border-slate-500 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-bold px-6 py-3 rounded-xl transition-all text-sm hover:-translate-y-0.5"
               >
                 Devis gratuit en 2h
               </Link>
             </div>
 
-            {/* Live dot */}
-            <div className="flex items-center gap-2 mb-8">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative rounded-full h-2 w-2 bg-green-400" />
-              </span>
-              <span className="text-xs text-slate-500">
-                Livraison express disponible aujourd&apos;hui · Commandez avant 14h
-              </span>
-            </div>
-
-            {/* Trust bar */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-5 border-t border-slate-800/60">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <span className="text-white text-sm font-bold">4.9</span>
-                <span className="text-slate-600 text-xs">/ 120+ avis Google</span>
+            {/* Trust bar condensée — live + différenciateurs sur une ligne */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-3 border-t border-slate-800/60">
+              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                <span className="relative flex h-2 w-2 flex-shrink-0">
+                  <span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative rounded-full h-2 w-2 bg-green-400" />
+                </span>
+                Express disponible aujourd'hui
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {['M', 'T', 'S', 'L', 'P'].map(l => (
-                    <div
-                      key={l}
-                      className="w-6 h-6 rounded-full bg-slate-800 border-2 border-[#080c14] flex items-center justify-center text-[9px] font-bold text-slate-400"
-                    >
-                      {l}
-                    </div>
-                  ))}
-                </div>
-                <span className="text-slate-600 text-xs">850+ clients pros</span>
+              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                10 ans · Liège
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
+                Devis en 2h
               </div>
             </div>
           </div>
@@ -278,23 +264,20 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className="relative border-t border-slate-800/60 bg-slate-900/40 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-0 md:divide-x md:divide-slate-800">
-            {[
-              { value: '15 000 m²', label: 'imprimés chaque mois' },
-              { value: '850+', label: 'clients professionnels' },
-              { value: '10 ans', label: "d'expérience à Liège" },
-              { value: 'J+1', label: 'livraison express possible' },
-            ].map(stat => (
-              <div key={stat.label} className="text-center md:px-8">
-                <p className="text-white font-black text-xl md:text-2xl">{stat.value}</p>
-                <p className="text-slate-600 text-xs mt-0.5">{stat.label}</p>
-              </div>
-            ))}
-          </div>
+      {/* ── Marquee strip — bas du hero ─────────────────────────────────────── */}
+      <div className="relative border-t border-white/[0.06] bg-[#0a0f1e] overflow-hidden py-3" aria-hidden="true">
+        <div
+          className="flex whitespace-nowrap"
+          style={{ animation: 'marquee 28s linear infinite', willChange: 'transform' }}
+        >
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+            <span key={i} className="flex items-center">
+              <span className="text-sm font-black uppercase tracking-[0.2em] text-white/50 px-4">{item}</span>
+              <span className="text-white/20 font-black text-xs">·</span>
+            </span>
+          ))}
         </div>
+        <style>{`@keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }`}</style>
       </div>
     </section>
   )
