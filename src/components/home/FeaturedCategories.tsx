@@ -37,7 +37,15 @@ export default async function FeaturedCategories() {
   const products = await getFeaturedProducts()
 
   return (
-    <section className="bg-slate-50 py-24 border-b border-slate-200">
+    <section
+      className="py-24 border-b border-slate-200 relative overflow-hidden"
+      style={{
+        backgroundColor: '#f0f9ff',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='120'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial Black%2C Arial' font-weight='900' font-size='42' fill='rgba(10%2C20%2C60%2C0.045)' letter-spacing='6' transform='rotate(-18 150 60)'%3ECOMINK%3C/text%3E%3C/svg%3E")`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: '300px 120px',
+      }}
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <div className="flex items-end justify-between mb-12">

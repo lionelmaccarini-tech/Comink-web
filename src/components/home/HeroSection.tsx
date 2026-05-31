@@ -2,7 +2,7 @@
 
 import React, { useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowRight, MapPin, Zap } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 
 // ── Marquee items ─────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ const SHOWCASE = [
     label: 'Chantier & immobilier',
     sub: 'Bâches · Palissades · Panneaux',
     img: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=90',
-    badge: 'Livraison express',
+    badge: 'Panneaux · Bâches',
     large: false,
   },
   {
@@ -79,8 +79,7 @@ function ShowcaseGrid() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4">
-            <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold px-2.5 py-1 rounded-full mb-2">
-              <Zap className="w-3 h-3 text-orange-400" />
+            <span className="inline-block bg-white/15 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold px-2.5 py-1 rounded-full mb-2">
               {SHOWCASE[0].badge}
             </span>
             <p className="text-white font-black text-lg leading-tight">{SHOWCASE[0].label}</p>
@@ -114,29 +113,19 @@ function ShowcaseGrid() {
         </div>
       </motion.div>
 
-      {/* Badge urgence */}
-      <motion.div
-        className="flex items-center justify-between bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl px-5 py-4"
-        initial={{ opacity: 1, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.6 }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-            <Zap className="w-4 h-4 text-orange-400" />
-          </div>
-          <div>
-            <p className="text-white text-sm font-bold">Urgence ? On gère.</p>
-            <p className="text-slate-400 text-xs">Devis en 2h · Production dès J+1</p>
-          </div>
+      {/* Pill contact devis */}
+      <div className="flex items-center justify-between bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl px-5 py-4">
+        <div>
+          <p className="text-white text-sm font-bold">Un projet à discuter ?</p>
+          <p className="text-slate-400 text-xs">On vous répond par mail ou téléphone</p>
         </div>
-        <a
-          href="tel:+3242330138"
+        <Link
+          href="/devis"
           className="text-blue-400 font-bold text-sm hover:text-blue-300 transition-colors whitespace-nowrap"
         >
-          +32 4 233 01 38
-        </a>
-      </motion.div>
+          Demander un devis →
+        </Link>
+      </div>
     </div>
   )
 }
@@ -170,16 +159,8 @@ export default function HeroSection() {
           {/* ── Colonne texte ── */}
           <div className="flex flex-col justify-center self-center">
 
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 mb-3 w-fit">
-              <span className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/25 text-blue-400 text-xs font-bold px-3 py-1.5 rounded-full tracking-wide">
-                <MapPin className="w-3 h-3" />
-                LIÈGE · BELGIQUE · DEPUIS 2014
-              </span>
-            </div>
-
             {/* H1 — editorial bold */}
-            <h1 className="text-[2.8rem] sm:text-[4rem] lg:text-[4.8rem] font-black tracking-[-0.03em] leading-[0.92] mb-4">
+            <h1 className="text-[2.8rem] sm:text-[4rem] lg:text-[5rem] font-black tracking-[-0.03em] leading-[0.92] mb-6">
               <motion.span
                 className="block text-white"
                 initial={{ opacity: 1, y: 30 }}
@@ -202,7 +183,7 @@ export default function HeroSection() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
               >
-                QUI LIVRE
+                DE
               </motion.span>
               <motion.span
                 className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-violet-400"
@@ -210,19 +191,12 @@ export default function HeroSection() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
               >
-                DEMAIN.
+                LIÈGE.
               </motion.span>
             </h1>
 
-            {/* Sous-titre */}
-            <p className="text-sm text-slate-400 leading-relaxed mb-4 max-w-md">
-              Banderoles, bâches, roll-up&hellip;{' '}
-              <span className="text-slate-300 font-medium">Tout en local à Liège.</span>{' '}
-              Même les urgences.
-            </p>
-
             {/* CTAs */}
-            <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex flex-wrap gap-3 mb-6">
               <Link
                 href="/catalogue"
                 className="group relative flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all text-sm shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 overflow-hidden"
@@ -235,26 +209,23 @@ export default function HeroSection() {
                 href="/devis"
                 className="flex items-center gap-2 border border-slate-700 hover:border-slate-500 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 font-bold px-6 py-3 rounded-xl transition-all text-sm hover:-translate-y-0.5"
               >
-                Devis gratuit en 2h
+                Demander un devis
               </Link>
             </div>
 
-            {/* Trust bar condensée — live + différenciateurs sur une ligne */}
+            {/* Trust bar — vrais différenciateurs */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-3 border-t border-slate-800/60">
               <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-                <span className="relative flex h-2 w-2 flex-shrink-0">
-                  <span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative rounded-full h-2 w-2 bg-green-400" />
-                </span>
-                Express disponible aujourd'hui
-              </div>
-              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                10 ans · Liège
+                Production locale
               </div>
               <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400 flex-shrink-0" />
-                Devis en 2h
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                Qualité garantie
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
+                Interlocuteur humain
               </div>
             </div>
           </div>

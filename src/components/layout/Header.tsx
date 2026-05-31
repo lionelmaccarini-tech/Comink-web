@@ -99,9 +99,9 @@ export default function Header() {
 
   return (
     <header className="bg-sky-950 sticky top-0 z-50 shadow-sm border-b border-sky-900">
-      {/* Topbar urgence */}
+      {/* Topbar contact */}
       <div className="bg-blue-600 text-white text-xs text-center py-1.5 px-4">
-        <span className="hidden sm:inline">⚡ Projet urgent ? Devis en moins de 2h — </span>
+        <span className="hidden sm:inline">Imprimerie grand format à Liège — </span>
         <a href="tel:+3242330138" suppressHydrationWarning className="font-bold hover:underline">+32 4 233 01 38</a>
         <span className="mx-2">·</span>
         <a href="mailto:info@comink.be" className="hover:underline">info@comink.be</a>
@@ -182,6 +182,9 @@ export default function Header() {
 
             <Link href="/devis" className={cn('text-sm font-semibold transition-colors', pathname === '/devis' ? 'text-white' : 'text-slate-300 hover:text-white')}>
               Devis
+            </Link>
+            <Link href="/verifier-fichier" className={cn('text-sm font-semibold transition-colors', pathname === '/verifier-fichier' ? 'text-white' : 'text-slate-300 hover:text-white')}>
+              Vérifier mon fichier
             </Link>
             <Link href="/blog" className={cn('text-sm font-semibold transition-colors', pathname === '/blog' ? 'text-white' : 'text-slate-300 hover:text-white')}>
               Blog
@@ -321,6 +324,7 @@ export default function Header() {
                 <Zap className="w-3.5 h-3.5" /> Commande rapide
               </Link>
               <Link href="/devis" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Devis</Link>
+              <Link href="/verifier-fichier" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Vérifier mon fichier</Link>
               <Link href="/blog" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Blog</Link>
               <Link href="/contact" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Contact</Link>
               {userProfile ? (
