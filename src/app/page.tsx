@@ -1,29 +1,28 @@
 import { Suspense } from 'react'
 import HeroSection from '@/components/home/HeroSection'
-import ChiffresSection from '@/components/home/ChiffresSection'
+import MarqueeStrip from '@/components/home/MarqueeStrip'
 import FeaturedCategories from '@/components/home/FeaturedCategories'
-import ToutPourSection from '@/components/home/ToutPourSection'
-import WhyUsSection from '@/components/home/WhyUsSection'
-import UrgenceSection from '@/components/home/UrgenceSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
-import AngeloSection from '@/components/home/AngeloSection'
 import CtaFinalSection from '@/components/home/CtaFinalSection'
 
 export default function HomePage() {
   return (
     <>
+      {/* 1. Hero */}
       <HeroSection />
-      <ChiffresSection />
-      <Suspense fallback={<div className="bg-blue-100 py-16 animate-pulse" />}>
+
+      {/* 2. Marquee — ticker produits */}
+      <MarqueeStrip />
+
+      {/* 3. Produits phares */}
+      <Suspense fallback={<div className="bg-slate-50 py-20 animate-pulse" />}>
         <FeaturedCategories />
       </Suspense>
-      <Suspense fallback={<div className="bg-blue-100 py-16 animate-pulse" />}>
-        <ToutPourSection />
-      </Suspense>
-      <WhyUsSection />
-      <UrgenceSection />
+
+      {/* 4. Témoignages */}
       <TestimonialsSection />
-      <AngeloSection />
+
+      {/* 5. CTA final */}
       <CtaFinalSection />
     </>
   )

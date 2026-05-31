@@ -1,66 +1,110 @@
 import React from 'react'
-import { Star } from 'lucide-react'
+import { Star, Quote } from 'lucide-react'
 
 const testimonials = [
   {
     name: 'Marie D.',
     company: 'Agence événementielle',
-    text: "Commande livrée en 48h chrono pour un salon professionnel. Qualité impeccable, bâches parfaitement tendues. Comink, c'est notre imprimeur de confiance.",
+    initials: 'MD',
+    color: 'bg-blue-600',
+    text: "Commande livrée en 48h chrono pour un salon professionnel. Qualité impeccable, bâches parfaitement tendues. Comink, c'est notre imprimeur de confiance depuis 3 ans.",
     rating: 5,
+    tag: 'Livraison express',
   },
   {
     name: 'Thomas V.',
     company: 'Promoteur immobilier',
-    text: "On travaille avec Comink depuis 3 ans pour tous nos panneaux de chantier. Réactivité exemplaire, prix cohérents et interlocuteur humain disponible.",
+    initials: 'TV',
+    color: 'bg-emerald-600',
+    text: "On travaille avec Comink pour tous nos panneaux de chantier. Réactivité exemplaire, prix cohérents et interlocuteur humain disponible. Jamais eu un retard.",
     rating: 5,
+    tag: 'Fidèle depuis 3 ans',
   },
   {
     name: 'Sophie L.',
     company: 'Responsable marketing',
-    text: "J'ai eu un besoin urgent un vendredi soir. Angelo (le chatbot) a répondu en quelques minutes, et la commande était prête le lundi. Bluffant.",
+    initials: 'SL',
+    color: 'bg-violet-600',
+    text: "Besoin urgent un vendredi soir. Angelo a répondu en quelques minutes, la commande était prête le lundi. Le genre de service qu'on ne trouve nulle part ailleurs.",
     rating: 5,
+    tag: 'Support 7j/7',
   },
 ]
 
 export default function TestimonialsSection() {
   return (
-    <section className="bg-white py-16 border-t border-slate-100">
+    <section className="bg-slate-50 py-20 border-y border-slate-200">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">ILS NOUS FONT CONFIANCE</p>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900">
-            850+ clients pros.{' '}
-            <span className="text-blue-600">Ils en parlent mieux que nous.</span>
-          </h2>
-          <div className="flex items-center justify-center gap-2 mt-3">
-            <div className="flex gap-0.5">
-              {[1,2,3,4,5].map((i) => <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />)}
+
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+          <div>
+            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mb-3">AVIS CLIENTS</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight">
+              Ils parlent mieux<br className="hidden sm:block" /> que nous.
+            </h2>
+          </div>
+
+          {/* Google rating badge */}
+          <div className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 shadow-sm w-fit">
+            <div className="flex items-center gap-1">
+              {/* Google colors */}
+              <span className="font-black text-[#4285F4]">G</span>
+              <span className="font-black text-[#EA4335]">o</span>
+              <span className="font-black text-[#FBBC05]">o</span>
+              <span className="font-black text-[#4285F4]">g</span>
+              <span className="font-black text-[#34A853]">l</span>
+              <span className="font-black text-[#EA4335]">e</span>
             </div>
-            <span className="text-sm font-bold text-slate-700">4.9 / 5</span>
-            <span className="text-sm text-slate-400">· 120+ avis Google</span>
+            <div className="w-px h-8 bg-slate-100" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xl font-black text-slate-900">4.9</span>
+                <div className="flex gap-0.5">
+                  {[1,2,3,4,5].map(i => <Star key={i} className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />)}
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">120+ avis vérifiés</p>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((t) => (
+        {/* Cards */}
+        <div className="grid md:grid-cols-3 gap-6">
+          {testimonials.map(t => (
             <div
               key={t.name}
-              className="bg-slate-50 rounded-2xl p-6 border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all"
+              className="group bg-white rounded-2xl p-6 border border-slate-200 hover:border-blue-200 hover:shadow-lg transition-all duration-300 flex flex-col"
             >
-              <div className="flex gap-0.5 mb-3">
+              {/* Quote icon */}
+              <Quote className="w-8 h-8 text-blue-100 mb-4 group-hover:text-blue-200 transition-colors" />
+
+              {/* Stars */}
+              <div className="flex gap-0.5 mb-4">
                 {[...Array(t.rating)].map((_, i) => (
                   <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                 ))}
               </div>
-              <p className="text-slate-700 text-sm leading-relaxed mb-4">"{t.text}"</p>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
-                  {t.name[0]}
+
+              {/* Text */}
+              <p className="text-slate-700 text-sm leading-relaxed flex-1 mb-5">
+                "{t.text}"
+              </p>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-full ${t.color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+                    {t.initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{t.name}</p>
+                    <p className="text-xs text-slate-400">{t.company}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-400">{t.company}</p>
-                </div>
+                <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full border border-blue-100">
+                  {t.tag}
+                </span>
               </div>
             </div>
           ))}
