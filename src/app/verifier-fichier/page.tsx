@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import FileCheckerClient from '@/components/public/FileCheckerClient'
+import FileCheckerWrapper from '@/components/public/FileCheckerWrapper'
 
 export const metadata: Metadata = {
   title: 'Vérifier mon fichier — Comink',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function VerifierFichierPage() {
-  return <FileCheckerClient />
+  return <FileCheckerWrapper />
 }

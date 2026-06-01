@@ -4,9 +4,14 @@ import fs from 'fs'
 import path from 'path'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60 // secondes (nécessite Vercel Pro)
 
 function getAnthropicKey(): string {
-  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY
+  // Bracket notation + variable = force runtime evaluation (bypass Turbopack inlining)
+  const envKey = 'ANTHROPIC_API_KEY'
+  const fromEnv = (process.env as Record<string, string | undefined>)[envKey]
+  if (fromEnv) return fromEnv
+  // Fallback local dev : lit .env.local directement
   try {
     const content = fs.readFileSync(path.join(process.cwd(), '.env.local'), 'utf8')
     const line = content.split('\n').find(l => l.startsWith('ANTHROPIC_API_KEY='))
@@ -19,40 +24,46 @@ function getAnthropicKey(): string {
 const SYSTEM = `Tu es un expert en prépresse et impression grand format.
 Tu analyses les fichiers visuels transmis par les clients pour vérifier leur conformité avant impression.
 
-Tu dois évaluer chaque fichier sur ces critères et retourner un JSON structuré :
+Retourne UNIQUEMENT ce JSON valide (aucun texte avant/après, aucun markdown) :
 
 {
-  "score": 0-100,
-  "status": "ok" | "warning" | "error",
-  "summary": "Résumé court en 1-2 phrases",
+  "score": 85,
+  "status": "ok",
+  "summary": "1-2 phrases résumant les points clés",
   "checks": [
-    {
-      "id": "resolution",
-      "label": "Résolution",
-      "status": "ok" | "warning" | "error",
-      "message": "...",
-      "detail": "..."
-    },
-    ...
+    { "id": "dimensions", "label": "Dimensions", "status": "ok", "message": "constat", "detail": "explication technique précise" }
   ],
-  "recommendations": ["...", "..."]
+  "recommendations": ["action 1", "action 2"]
 }
 
-Critères à analyser :
-- **resolution**: Pour l'impression grand format, 72-100 dpi à taille finale est acceptable, 150+ dpi est bon, en dessous de 72 dpi c'est insuffisant. Si tu vois des artefacts de compression ou du flou, status = "warning". En dessous de 50 dpi visible, status = "error".
-- **color_mode**: CMYK est obligatoire pour l'impression. **RGB est REFUSÉ : status = "error"** — le client doit renvoyer le fichier en CMYK. Noir et blanc (niveaux de gris) est acceptable.
-- **bleed**: Présence de fond perdu (3-5mm) recommandée pour les produits avec découpe. Si tu vois des bords blancs nets sur un fichier qui devrait avoir un fond perdu, status = "warning".
-- **text_legibility**: Le texte est-il lisible ? Suffisamment grand ? Pas trop proche des bords ? Texte illisible = "error".
-- **format**: PDF vectoriel = parfait ("ok"), PNG/JPG haute résolution = "ok", JPG compressé avec artefacts = "warning", fichiers office (Word, PowerPoint) = "error".
-- **overall_quality**: Qualité générale du visuel, clarté, cohérence.
+Critères OBLIGATOIRES (un check par critère) :
 
-RÈGLE ABSOLUE : Un fichier RGB doit avoir color_mode.status = "error" et apparaître dans le résumé. Le score global ne peut pas dépasser 40 si le mode colorimétrique est RGB.
-Le status global ("ok"/"warning"/"error") est "error" si au moins un check est "error", "warning" si au moins un est "warning", "ok" sinon.
-Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
+1. **dimensions** (id:"dimensions") — Extraire les dimensions du nom de fichier ou du document. detail: dimensions détectées ou "Non trouvées".
+2. **resolution** (id:"resolution") — 150+ dpi = ok, 72-149 dpi = warning, < 72 dpi = error. Flou/artefacts visibles = error. detail: dpi détecté ou estimé.
+3. **color_mode** (id:"color_mode") — CMJN = ok. **RVB = error** (client doit renvoyer en CMJN). Niveaux de gris = ok. detail: mode colorimétrique détecté.
+4. **fonts** (id:"fonts") — Polices converties en tracés (outlines) = ok. Polices live non embarquées = warning/error. detail: polices détectées et statut.
+5. **images_embedded** (id:"images_embedded") — Images bitmap embarquées à bonne résolution = ok. Basse résolution = warning. Manquantes = error. detail: résolution des images.
+6. **cut_contour** (id:"cut_contour") — Tracé de découpe (Tom Direct, 100% Magenta) présent = ok. Absent pour produit découpé = warning. Standard bâche/banderole = ok sans tracé. detail: présence ou absence.
+7. **bleed** (id:"bleed") — Fond perdu 3-5mm présent = ok. Bords blancs nets = warning. detail: observation des bords.
+8. **text_legibility** (id:"text_legibility") — Texte lisible, sécurité respectée = ok. Trop petit ou trop en bordure = warning. detail: observations.
+
+RÈGLES :
+- RVB = error obligatoire. Score ≤ 40 si color_mode est "error".
+- status global "error" si un check est "error", "warning" si un check est "warning".
+- score 80-100 ok, 60-79 warnings, 40-59 corrections, < 40 erreurs critiques.
+- checks: toujours un tableau, jamais null/undefined.`
 
 // ── POST /api/crm/analyze-file ────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = getAnthropicKey()
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Service d\'analyse temporairement indisponible. Veuillez contacter Comink directement.' },
+        { status: 503 }
+      )
+    }
+
     const { file_url, file_name, product_name, dimensions } = await req.json()
 
     if (!file_url) {
@@ -79,7 +90,27 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const client = new Anthropic({ apiKey: getAnthropicKey() })
+    const client = new Anthropic({ apiKey })
+
+    // ── Vérifier la taille AVANT de charger en mémoire ───────────────────────
+    const headRes = await fetch(file_url, { method: 'HEAD' })
+    const contentLength = headRes.headers.get('content-length')
+    const MAX_BYTES = isPDF ? 32 * 1024 * 1024 : 20 * 1024 * 1024
+    if (contentLength && Number(contentLength) > MAX_BYTES) {
+      return NextResponse.json({
+        score: 60,
+        status: 'warning',
+        summary: 'Fichier trop volumineux pour analyse automatique.',
+        checks: [{
+          id: 'format',
+          label: 'Taille fichier',
+          status: 'warning',
+          message: `Fichier de ${Math.round(Number(contentLength) / 1024 / 1024)}MB — trop grand pour l'analyse IA (limite ${Math.round(MAX_BYTES / 1024 / 1024)}MB).`,
+          detail: 'Un fichier volumineux est souvent signe de bonne qualité. Vérification manuelle recommandée.',
+        }],
+        recommendations: ['Exportez une version allégée (72-150 dpi) pour la vérification automatique. L\'original haute résolution est parfait pour l\'impression.'],
+      })
+    }
 
     // ── Fetch file and convert to base64 ──────────────────────────────────────
     const fetchRes = await fetch(file_url)
@@ -88,8 +119,7 @@ export async function POST(req: NextRequest) {
     const buffer = await fetchRes.arrayBuffer()
     const base64 = Buffer.from(buffer).toString('base64')
 
-    // Limit size: 20MB for images, 32MB for PDFs
-    const MAX_BYTES = isPDF ? 32 * 1024 * 1024 : 20 * 1024 * 1024
+    // Vérification taille post-téléchargement (si HEAD n'avait pas de content-length)
     if (buffer.byteLength > MAX_BYTES) {
       return NextResponse.json({
         score: 60,
@@ -122,7 +152,7 @@ export async function POST(req: NextRequest) {
     // ── Call Claude with vision ───────────────────────────────────────────────
     const response = await client.messages.create({
       model: 'claude-opus-4-7',
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: SYSTEM,
       messages: [{
         role: 'user',
@@ -143,15 +173,35 @@ export async function POST(req: NextRequest) {
 
     const raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
-    // Parse JSON response
+    // Parse JSON robuste
     const jsonMatch = raw.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('Réponse Claude invalide')
+    if (!jsonMatch) throw new Error('Réponse Claude invalide — aucun JSON trouvé')
 
-    const analysis = JSON.parse(jsonMatch[0])
+    let jsonStr = jsonMatch[0]
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/\/\/[^\n]*/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+
+    let analysis
+    try {
+      analysis = JSON.parse(jsonStr)
+    } catch {
+      const strictMatch = raw.match(/(\{(?:[^{}]|(?:\{[^{}]*\}))*\})/)
+      if (strictMatch) analysis = JSON.parse(strictMatch[0])
+      else throw new Error('Impossible de parser la réponse JSON')
+    }
     return NextResponse.json(analysis)
 
   } catch (err: any) {
     console.error('[analyze-file POST]', err)
-    return NextResponse.json({ error: err.message || 'Erreur serveur' }, { status: 500 })
+    const msg = err?.message || ''
+    // Messages d'erreur lisibles pour l'utilisateur
+    if (msg.includes('timeout') || msg.includes('AbortError')) {
+      return NextResponse.json({ error: 'Analyse trop longue — fichier probablement trop lourd. Essayez avec une version allégée (export 150 dpi).' }, { status: 408 })
+    }
+    if (msg.includes('too large') || msg.includes('maximum') || msg.includes('context')) {
+      return NextResponse.json({ error: 'Fichier trop volumineux pour l\'analyse IA. Exportez une version PDF allégée.' }, { status: 413 })
+    }
+    return NextResponse.json({ error: `Erreur d'analyse : ${msg || 'erreur interne'}` }, { status: 500 })
   }
 }

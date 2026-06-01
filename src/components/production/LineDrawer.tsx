@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X, Download, FileText, ZoomIn, RefreshCw } from 'lucide-react'
+import { X, Download, FileText, ZoomIn, RefreshCw, FileDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductionLine, ProductionStatus, StaffMember } from './types'
 import FileAnalysisResult from '@/components/crm/FileAnalysisResult'
+import { generateAnalysisReport } from '@/lib/generateAnalysisReport'
 
 interface Props {
   line: ProductionLine
@@ -134,14 +135,29 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Analyse du fichier</p>
-                <button
-                  onClick={handleReanalyze}
-                  disabled={analysing}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
-                >
-                  <RefreshCw className={cn('w-3.5 h-3.5', analysing && 'animate-spin')} />
-                  {analysing ? 'Analyse…' : line.file_analysis ? 'Re-analyser' : 'Analyser'}
-                </button>
+                <div className="flex items-center gap-2">
+                  {line.file_analysis && !analysing && (
+                    <button
+                      onClick={() => generateAnalysisReport({
+                        fileName: line.file_name || 'fichier',
+                        orderNumber: line.order_number,
+                        clientName: line.client_name,
+                        dimensions: line.width_cm && line.height_cm ? `${line.width_cm} × ${line.height_cm} cm` : undefined,
+                      }, line.file_analysis!)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                    >
+                      <FileDown className="w-3.5 h-3.5" /> Rapport
+                    </button>
+                  )}
+                  <button
+                    onClick={handleReanalyze}
+                    disabled={analysing}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
+                  >
+                    <RefreshCw className={cn('w-3.5 h-3.5', analysing && 'animate-spin')} />
+                    {analysing ? 'Analyse…' : line.file_analysis ? 'Re-analyser' : 'Analyser'}
+                  </button>
+                </div>
               </div>
               <FileAnalysisResult
                 result={line.file_analysis ?? null}

@@ -63,8 +63,8 @@ export default function FileAnalysisResult({ result, loading, error }: Props) {
           <Sparkles className="w-3.5 h-3.5 text-blue-500" />
           Analyse Claude
         </div>
-        <span className={`text-lg font-bold ${SCORE_COLOR(result.score)}`}>
-          {result.score}/100
+        <span className={`text-lg font-bold ${SCORE_COLOR(result.score ?? 0)}`}>
+          {typeof result.score === 'number' ? `${result.score}/100` : '—'}
         </span>
       </div>
 
@@ -72,7 +72,7 @@ export default function FileAnalysisResult({ result, loading, error }: Props) {
 
       {/* Checks */}
       <div className="space-y-1.5">
-        {result.checks.map(check => (
+        {(result.checks ?? []).map(check => (
           <div key={check.id} className="flex items-start gap-2">
             {STATUS_ICON[check.status]}
             <div className="min-w-0">
