@@ -8,8 +8,7 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 // ── Marquee items ─────────────────────────────────────────────────────────────
 const MARQUEE_ITEMS = ['BANDEROLES','BÂCHES','ROLL-UP','DIBOND','FOREX','ADHÉSIFS','DRAPEAUX','PANNEAUX','TOILES','TEXTILE','KAKÉMONOS','VITROPHANIE']
 
-// ── Photos — signage / printing / grand format context ───────────────────────
-
+// ── Photos ────────────────────────────────────────────────────────────────────
 const SHOWCASE = [
   {
     label: 'Événements & salons',
@@ -135,12 +134,22 @@ function ShowcaseGrid() {
 export default function HeroSection() {
   return (
     <section
-      className="relative bg-[#080c14] text-white overflow-hidden flex flex-col"
-      style={{ height: 'calc(100dvh - 100px)', minHeight: '560px' }}
+      className="relative text-white overflow-hidden flex flex-col"
+      style={{ background: '#060b18', height: 'calc(100dvh - 100px)', minHeight: '560px' }}
     >
+      {/* Ambient glow uniquement */}
+
+      {/* Gradient gauche pour lisibilité du texte */}
+      <div
+        className="absolute inset-0 z-[1] pointer-events-none"
+        style={{
+          background: 'linear-gradient(to right, rgba(6,11,24,0.92) 0%, rgba(6,11,24,0.65) 45%, transparent 100%)',
+        }}
+      />
+
       {/* Dot grid */}
       <div
-        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        className="absolute inset-0 z-[2] opacity-[0.03] pointer-events-none"
         style={{
           backgroundImage:
             'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
@@ -149,11 +158,11 @@ export default function HeroSection() {
       />
 
       {/* Ambient glow bleu-violet */}
-      <div className="absolute top-0 left-1/4 w-[700px] h-[700px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-10 right-1/4 w-[500px] h-[500px] bg-violet-600/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-[700px] h-[700px] bg-blue-600/8 rounded-full blur-[140px] pointer-events-none z-[1]" />
+      <div className="absolute bottom-10 right-1/4 w-[500px] h-[500px] bg-violet-600/6 rounded-full blur-[120px] pointer-events-none z-[1]" />
 
       {/* ── Contenu principal ── */}
-      <div className="relative flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center">
+      <div className="relative z-10 flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex items-center">
         <div className="w-full grid lg:grid-cols-2 gap-8 lg:gap-12 py-6 lg:py-8 items-center">
 
           {/* ── Colonne texte ── */}
@@ -163,7 +172,7 @@ export default function HeroSection() {
             <h1 className="text-[2.8rem] sm:text-[4rem] lg:text-[5rem] font-black tracking-[-0.03em] leading-[0.92] mb-6">
               <motion.span
                 className="block text-white"
-                initial={{ opacity: 1, y: 30 }}
+                initial={{ opacity: 1, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
               >
@@ -171,7 +180,7 @@ export default function HeroSection() {
               </motion.span>
               <motion.span
                 className="block text-white"
-                initial={{ opacity: 1, y: 30 }}
+                initial={{ opacity: 1, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
               >
@@ -179,7 +188,7 @@ export default function HeroSection() {
               </motion.span>
               <motion.span
                 className="block text-white"
-                initial={{ opacity: 1, y: 30 }}
+                initial={{ opacity: 1, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
               >
@@ -187,7 +196,7 @@ export default function HeroSection() {
               </motion.span>
               <motion.span
                 className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-violet-400"
-                initial={{ opacity: 1, y: 30 }}
+                initial={{ opacity: 1, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.24, ease: [0.22, 1, 0.36, 1] }}
               >
@@ -196,7 +205,12 @@ export default function HeroSection() {
             </h1>
 
             {/* CTAs */}
-            <div className="flex flex-wrap gap-3 mb-6">
+            <motion.div
+              className="flex flex-wrap gap-3 mb-6"
+              initial={{ opacity: 1, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
               <Link
                 href="/catalogue"
                 className="group relative flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all text-sm shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 overflow-hidden"
@@ -211,10 +225,15 @@ export default function HeroSection() {
               >
                 Demander un devis
               </Link>
-            </div>
+            </motion.div>
 
-            {/* Trust bar — vrais différenciateurs */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-3 border-t border-slate-800/60">
+            {/* Trust bar */}
+            <motion.div
+              className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-3 border-t border-slate-800/60"
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.55 }}
+            >
               <div className="flex items-center gap-1.5 text-slate-400 text-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
                 Production locale
@@ -227,7 +246,7 @@ export default function HeroSection() {
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
                 Interlocuteur humain
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* ── Colonne photos ── */}
@@ -236,7 +255,7 @@ export default function HeroSection() {
       </div>
 
       {/* ── Marquee strip — bas du hero ─────────────────────────────────────── */}
-      <div className="relative border-t border-white/[0.06] bg-[#0a0f1e] overflow-hidden py-3" aria-hidden="true">
+      <div className="relative z-10 border-t border-white/[0.06] bg-[#060b18]/90 backdrop-blur-sm overflow-hidden py-3" aria-hidden="true">
         <div
           className="flex whitespace-nowrap"
           style={{ animation: 'marquee 28s linear infinite', willChange: 'transform' }}

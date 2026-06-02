@@ -8,6 +8,7 @@ import Footer from '@/components/layout/Footer'
 import { Toaster } from '@/components/ui/toaster'
 import { createServiceClient } from '@/lib/supabase/server'
 import AngeloChatClient from '@/components/chat/AngeloChatClient'
+import FloatingSidebar from '@/components/ui/FloatingSidebar'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -65,6 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </body>
       ) : (
         <body className="min-h-screen bg-sky-50 flex flex-col antialiased">
+          <FloatingSidebar />
           <Toaster>
             <Header />
             <main className="flex-1">{children}</main>

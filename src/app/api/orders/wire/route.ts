@@ -4,6 +4,7 @@ import { generateOrderNumber } from '@/lib/utils'
 import { addWorkingDaysISO } from '@/lib/workingDays'
 import { syncOrderToOdoo, OdooOrderItem } from '@/lib/odoo/syncOrder'
 import { isIntraCommunityVAT } from '@/lib/utils'
+import { getPartnerFollowupInfo, isOdooConfigured } from '@/lib/odoo/client'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,17 @@ export async function POST(req: NextRequest) {
     // Get authenticated user from session (server-side cookie)
     const supabaseAuth = await createClient()
     const { data: { user: authUser } } = await supabaseAuth.auth.getUser()
+
+    // ── Blocage commande si niveau relance >= 2 ───────────────────────────────
+    if (isOdooConfigured() && authUser?.email) {
+      const followup = await getPartnerFollowupInfo(authUser.email)
+      if (followup.level >= 2) {
+        return NextResponse.json(
+          { error: "Votre compte est bloqué en raison de factures impayées. Veuillez régulariser votre situation pour passer commande." },
+          { status: 403 },
+        )
+      }
+    }
 
     const supabase = await createServiceClient()
     const orderNumber = generateOrderNumber()

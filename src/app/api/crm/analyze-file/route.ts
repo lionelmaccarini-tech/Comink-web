@@ -40,7 +40,7 @@ Critères OBLIGATOIRES (un check par critère) :
 
 1. **dimensions** (id:"dimensions") — Extraire les dimensions du nom de fichier ou du document. detail: dimensions détectées ou "Non trouvées".
 2. **resolution** (id:"resolution") — 150+ dpi = ok, 72-149 dpi = warning, < 72 dpi = error. Flou/artefacts visibles = error. detail: dpi détecté ou estimé.
-3. **color_mode** (id:"color_mode") — CMJN = ok. **RVB = error** (client doit renvoyer en CMJN). Niveaux de gris = ok. detail: mode colorimétrique détecté.
+3. **color_mode** (id:"color_mode") — IMPORTANT : pour un PDF transmis directement, lis les métadonnées du document et les espaces colorimétriques déclarés (ColorSpace, /CS entries, profils ICC). CMJN/CMYK = ok. RVB/RGB = error (client doit renvoyer en CMJN). Niveaux de gris = ok. Tu DOIS déterminer le mode colorimétrique réel — ne jamais répondre "impossible à déterminer" pour un PDF complet. Analyse les espaces de couleur des objets graphiques dans le document. detail: mode colorimétrique détecté avec certitude ou forte probabilité + espace colorimétrique exact (ex: "CMJN DeviceCMYK", "RVB sRGB", "Gris DeviceGray").
 4. **fonts** (id:"fonts") — Polices converties en tracés (outlines) = ok. Polices live non embarquées = warning/error. detail: polices détectées et statut.
 5. **images_embedded** (id:"images_embedded") — Images bitmap embarquées à bonne résolution = ok. Basse résolution = warning. Manquantes = error. detail: résolution des images.
 6. **cut_contour** (id:"cut_contour") — Tracé de découpe (Tom Direct, 100% Magenta) présent = ok. Absent pour produit découpé = warning. Standard bâche/banderole = ok sans tracé. detail: présence ou absence.
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { file_url, file_name, product_name, dimensions } = await req.json()
+    const { file_url, file_name, product_name, dimensions, product_bleed, product_diecut } = await req.json()
 
     if (!file_url) {
       return NextResponse.json({ error: 'file_url requis' }, { status: 400 })
@@ -144,9 +144,11 @@ export async function POST(req: NextRequest) {
 
     // ── Build context for Claude ──────────────────────────────────────────────
     const contextParts = [
-      product_name ? `Produit commandé : ${product_name}` : null,
-      dimensions   ? `Dimensions finales : ${dimensions}` : null,
       `Nom du fichier : ${file_name || 'inconnu'}`,
+      product_name ? `Produit commandé : ${product_name}` : null,
+      dimensions ? `Dimensions commandées : ${dimensions} — le fichier DOIT correspondre (+ fond perdu inclus)` : null,
+      product_bleed ? `Fond perdu requis : ${product_bleed} sur chaque côté` : null,
+      product_diecut ? `TRACÉ DE DÉCOUPE OBLIGATOIRE pour ce produit (Tom Direct 100% Magenta)` : null,
     ].filter(Boolean).join('\n')
 
     // ── Call Claude with vision ───────────────────────────────────────────────

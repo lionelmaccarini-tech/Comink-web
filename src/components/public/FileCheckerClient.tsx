@@ -2,9 +2,42 @@
 
 import React, { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Upload, FileText, Loader2, ScanSearch, Palette, Maximize2, Type, RotateCcw, Download } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Upload, FileText, ScanSearch, Palette, Maximize2, Type, RotateCcw, Download } from 'lucide-react'
 import FileAnalysisResult, { AnalysisResult } from '@/components/crm/FileAnalysisResult'
 import { generateAnalysisReport } from '@/lib/generateAnalysisReport'
+import LottiePlayer from '@/components/ui/LottiePlayer'
+
+// ── Indicateur résultat animé ─────────────────────────────────────────────────
+function ResultIndicator({ status, score }: { status: 'ok' | 'warning' | 'error'; score: number }) {
+  const config = {
+    ok:      { emoji: '👍', label: 'Prêt pour l\'impression',   bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', score: 'text-emerald-600' },
+    warning: { emoji: '👉', label: 'Quelques points à vérifier', bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700',   score: 'text-amber-600'   },
+    error:   { emoji: '👎', label: 'Corrections nécessaires',    bg: 'bg-red-50',     border: 'border-red-200',     text: 'text-red-700',     score: 'text-red-600'     },
+  }[status]
+
+  return (
+    <motion.div
+      className={`flex items-center gap-4 rounded-2xl border-2 p-5 ${config.bg} ${config.border}`}
+      initial={{ scale: 0.5, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+    >
+      <motion.span
+        className="text-5xl select-none"
+        initial={{ rotate: -30 }}
+        animate={{ rotate: [0, 15, -5, 0] }}
+        transition={{ delay: 0.3, duration: 0.6, ease: 'easeOut' }}
+      >
+        {config.emoji}
+      </motion.span>
+      <div>
+        <p className={`font-black text-xl ${config.score}`}>{score}<span className="text-sm font-normal opacity-60">/100</span></p>
+        <p className={`font-bold text-sm ${config.text}`}>{config.label}</p>
+      </div>
+    </motion.div>
+  )
+}
 
 type State = 'idle' | 'dragging' | 'uploading' | 'analysing' | 'done'
 
@@ -39,6 +72,34 @@ async function resizeImage(file: File): Promise<string> {
   })
 }
 
+// ── Config produits avec exigences prépresse ─────────────────────────────────
+// ── Règles prépresse par catégorie ───────────────────────────────────────────
+const CATEGORY_RULES: Record<string, { icon: string; bleed: string; diecut: boolean }> = {
+  banderoles:            { icon: '🎪', bleed: '3-5mm', diecut: false },
+  baches:                { icon: '🏗️', bleed: '3-5mm', diecut: false },
+  toiles:                { icon: '🖼️', bleed: '3-5mm', diecut: false },
+  roll_up:               { icon: '📜', bleed: '3mm',   diecut: false },
+  drapeaux:              { icon: '🚩', bleed: '3mm',   diecut: false },
+  adhesifs:              { icon: '🏷️', bleed: '3mm',   diecut: true  },
+  vinyle_autocollant:    { icon: '🏷️', bleed: '3mm',   diecut: true  },
+  panneaux:              { icon: '📌', bleed: '3mm',   diecut: false },
+  supports_evenementiels:{ icon: '🎪', bleed: '3mm',   diecut: false },
+  textile:               { icon: '👕', bleed: '0mm',   diecut: false },
+  papier:                { icon: '🗞️', bleed: '3mm',   diecut: false },
+  accessoires:           { icon: '📦', bleed: '0mm',   diecut: false },
+}
+const DEFAULT_RULE = { icon: '📄', bleed: '3mm', diecut: false }
+
+interface CatalogProduct {
+  id: string
+  name: string
+  category: string
+  bleed: string
+  diecut: boolean
+  icon: string
+}
+
+
 export default function FileCheckerClient() {
   const [state, setState] = useState<State>('idle')
   const [fileName, setFileName] = useState('')
@@ -46,7 +107,35 @@ export default function FileCheckerClient() {
   const [dims, setDims] = useState<{ w: number; h: number; label: string } | null>(null)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | undefined>()
+  // Catalogue réel depuis Supabase
+  const [products, setProducts] = useState<CatalogProduct[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  // Sélection produit + dimensions commandées
+  const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null)
+  const [orderedW, setOrderedW] = useState('')
+  const [orderedH, setOrderedH] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const orderedDims = selectedProduct && orderedW && orderedH
+    ? `${orderedW} × ${orderedH} cm`
+    : null
+
+  // Chargement du catalogue réel
+  React.useEffect(() => {
+    fetch('/api/admin/products')
+      .then(r => r.json())
+      .then((data: Array<{ id: string; name: string; category: string; available: boolean }>) => {
+        const available = (Array.isArray(data) ? data : [])
+          .filter(p => p.available !== false)
+          .map(p => {
+            const rule = CATEGORY_RULES[p.category] ?? DEFAULT_RULE
+            return { id: p.id, name: p.name, category: p.category, ...rule }
+          })
+        setProducts(available)
+      })
+      .catch(() => setProducts([]))
+      .finally(() => setLoadingProducts(false))
+  }, [])
 
   const reset = () => {
     setState('idle'); setFileName(''); setFileSizeMB(0); setDims(null)
@@ -83,7 +172,15 @@ export default function FileCheckerClient() {
         const res = await fetch('/api/crm/analyze-preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ preview_base64: preview, file_name: file.name, file_size_mb: sizeMB, dimensions: detectedDims?.label }),
+          body: JSON.stringify({
+            preview_base64: preview,
+            file_name: file.name,
+            file_size_mb: sizeMB,
+            dimensions: orderedDims || detectedDims?.label,
+            product_name: selectedProduct?.name,
+            product_bleed: selectedProduct?.bleed,
+            product_diecut: selectedProduct?.diecut,
+          }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
@@ -126,7 +223,14 @@ export default function FileCheckerClient() {
       const res = await fetch('/api/crm/analyze-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_url: url, file_name: name, dimensions: detectedDims?.label }),
+        body: JSON.stringify({
+          file_url: url,
+          file_name: name,
+          dimensions: orderedDims || detectedDims?.label,
+          product_name: selectedProduct?.name,
+          product_bleed: selectedProduct?.bleed,
+          product_diecut: selectedProduct?.diecut,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
@@ -179,6 +283,81 @@ export default function FileCheckerClient() {
           className="hidden" disabled={isProcessing}
           onChange={e => { const f = e.target.files?.[0]; if (f) analyse(f) }} />
 
+        {/* ── Sélection produit + dimensions commandées ── */}
+        {!isDone && !isProcessing && (
+          <div className="space-y-4 mb-2">
+            {/* Grille produits du catalogue */}
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+                1. Quel produit avez-vous commandé ?
+              </p>
+              {loadingProducts ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {products.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProduct(selectedProduct?.id === p.id ? null : p)}
+                      className={[
+                        'flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-left',
+                        selectedProduct?.id === p.id
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                          : 'border-slate-100 bg-white text-slate-600 hover:border-slate-200',
+                      ].join(' ')}
+                    >
+                      <span className="text-lg">{p.icon}</span>
+                      <span className="leading-tight text-center line-clamp-2">{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Dimensions commandées */}
+            {selectedProduct && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3"
+              >
+                <span className="text-sm font-bold text-slate-600 flex-shrink-0">2. Dimensions commandées</span>
+                <input
+                  type="number" value={orderedW} onChange={e => setOrderedW(e.target.value)}
+                  placeholder="Largeur" className="w-24 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-slate-400 font-bold">×</span>
+                <input
+                  type="number" value={orderedH} onChange={e => setOrderedH(e.target.value)}
+                  placeholder="Hauteur" className="w-24 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-slate-400 text-sm">cm</span>
+                {selectedProduct.diecut && (
+                  <span className="ml-auto text-xs font-bold text-violet-600 bg-violet-50 border border-violet-200 px-2 py-1 rounded-full flex-shrink-0">
+                    ✂️ Tracé requis
+                  </span>
+                )}
+                {!selectedProduct.diecut && (
+                  <span className="ml-auto text-xs text-slate-400 flex-shrink-0">
+                    Fond perdu : {selectedProduct.bleed}
+                  </span>
+                )}
+              </motion.div>
+            )}
+
+            {/* Séparateur */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-slate-100" />
+              <span className="text-xs font-bold text-slate-400">3. Déposez votre fichier</span>
+              <div className="flex-1 h-px bg-slate-100" />
+            </div>
+          </div>
+        )}
+
         {!isDone && (
           <div onDrop={onDrop}
             onDragOver={e => { e.preventDefault(); setState('dragging') }}
@@ -192,12 +371,18 @@ export default function FileCheckerClient() {
           >
             {isProcessing ? (
               <>
-                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-                <div>
-                  <p className="font-semibold text-slate-700">
+                <LottiePlayer
+                  src="/animations/scan.json"
+                  className="w-40 h-40"
+                  loop
+                  autoplay
+                />
+                <div className="text-center">
+                  <p className="font-bold text-slate-800 text-base">
                     {state === 'uploading' ? 'Envoi du fichier…' : 'Analyse IA en cours…'}
                   </p>
-                  <p className="text-sm text-slate-400 mt-1">{fileName} · {fileSizeMB} MB</p>
+                  <p className="text-sm text-slate-400 mt-1">{fileName} · {fileSizeMB > 0 ? `${fileSizeMB} MB` : ''}</p>
+                  <p className="text-xs text-blue-500 mt-2 animate-pulse">Claude vérifie votre fichier…</p>
                 </div>
               </>
             ) : (
@@ -234,6 +419,10 @@ export default function FileCheckerClient() {
               </div>
             </div>
 
+            {/* Indicateur résultat animé — s'arrête après l'animation */}
+            {result && !errorMsg && (
+              <ResultIndicator status={result.status} score={result.score ?? 0} />
+            )}
             <FileAnalysisResult result={result} loading={false} error={errorMsg} />
 
             {result && !errorMsg && (

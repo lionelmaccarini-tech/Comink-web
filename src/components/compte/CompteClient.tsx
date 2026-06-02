@@ -8,6 +8,7 @@ import { formatDate, formatPrice, isBelgianVAT, isIntraCommunityVAT, isValidVAT 
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/hooks/useCart'
 import type { Order } from '@/types'
+import InvoicesTab from './InvoicesTab'
 
 interface ProductionStatusDisplay {
   id: string
@@ -187,7 +188,7 @@ const COUNTRIES = [['BE','Belgique'],['FR','France'],['NL','Pays-Bas'],['LU','Lu
 export default function CompteClient({ user, profile, orders, quotes: initialQuotes }: Props) {
   const router = useRouter()
   const { clearCart, addItem } = useCart()
-  const [tab, setTab] = useState<'commandes' | 'devis' | 'profil'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'devis' | 'factures' | 'profil'>('commandes')
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
   const [vatNumber, setVatNumber] = useState<string>(profile?.vat_number ?? '')
   const [savingVat, setSavingVat] = useState(false)
@@ -367,7 +368,7 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
 
         {/* Tabs — dans le bandeau sombre */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 border-t border-slate-700/60">
-          {(['commandes', 'devis', 'profil'] as const).map(t => (
+          {(['commandes', 'devis', 'factures', 'profil'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
                 tab === t
@@ -378,6 +379,8 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                 ? `Mes Commandes (${orders.length})`
                 : t === 'devis'
                 ? `Mes Devis (${quotes.length})`
+                : t === 'factures'
+                ? 'Mes Factures'
                 : 'Mon Profil'}
             </button>
           ))}
@@ -503,6 +506,9 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
             )}
           </div>
         )}
+
+        {/* ── FACTURES ── */}
+        {tab === 'factures' && <InvoicesTab />}
 
         {/* ── PROFIL ── */}
         {tab === 'profil' && (

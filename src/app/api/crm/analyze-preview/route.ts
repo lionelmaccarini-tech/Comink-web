@@ -54,11 +54,12 @@ Critères OBLIGATOIRES à évaluer (un check par critère) :
    - detail: taille fichier + estimation qualité
 
 3. **color_mode** (id: "color_mode")
-   - Analyse les couleurs dans l'aperçu
-   - Couleurs vives/saturées/néon → RVB probable (error — doit être CMJN)
-   - Couleurs légèrement désaturées/mates → CMJN probable (ok)
-   - Noir pur sur fond blanc → impossible à déterminer (warning)
-   - detail: observation des couleurs + recommandation
+   - Analyse attentivement les couleurs dans l'aperçu JPEG
+   - Couleurs vives/saturées/néon/bleu électrique/rouge vif → RVB probable (error — doit être CMJN)
+   - Couleurs légèrement ternes/désaturées/aspect "mat d'impression" → CMJN probable (ok)
+   - Impression photo réaliste avec tons naturels → CMJN probable (ok)
+   - Ne jamais dire "impossible à déterminer" — donne toujours une conclusion avec degré de confiance
+   - detail: "Mode colorimétrique estimé : CMJN (confiance 90%) — [observation visuelle]" ou "RVB probable — [raison]"
 
 4. **fonts** (id: "fonts")
    - Cherche si du texte est visible dans l'aperçu
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { preview_base64, file_name, file_size_mb, product_name, dimensions } = await req.json()
+    const { preview_base64, file_name, file_size_mb, product_name, dimensions, product_bleed, product_diecut } = await req.json()
 
     if (!preview_base64) {
       return NextResponse.json({ error: 'preview_base64 requis' }, { status: 400 })
@@ -130,8 +131,10 @@ export async function POST(req: NextRequest) {
     const contextParts = [
       `Nom du fichier : ${file_name || 'inconnu'}`,
       file_size_mb ? `Taille fichier original : ${file_size_mb} MB` : null,
-      product_name ? `Produit : ${product_name}` : null,
-      dimensions ? `Dimensions finales : ${dimensions}` : null,
+      product_name ? `Produit commandé : ${product_name}` : null,
+      dimensions ? `Dimensions commandées : ${dimensions} — le fichier DOIT correspondre à ces dimensions (avec fond perdu inclus)` : null,
+      product_bleed ? `Fond perdu requis pour ce produit : ${product_bleed}` : null,
+      product_diecut ? `Tracé de découpe obligatoire pour ce produit (Tom Direct 100% Magenta)` : null,
     ].filter(Boolean).join('\n')
 
     const response = await client.messages.create({

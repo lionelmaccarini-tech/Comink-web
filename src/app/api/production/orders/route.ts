@@ -3,6 +3,7 @@ import { requireStaff } from '@/lib/requireStaff'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateOrderNumber } from '@/lib/utils'
 import { addWorkingDaysISO } from '@/lib/workingDays'
+import { getPartnerFollowupInfo, isOdooConfigured } from '@/lib/odoo/client'
 import { syncOrderToOdoo, OdooOrderItem } from '@/lib/odoo/syncOrder'
 import { isIntraCommunityVAT } from '@/lib/utils'
 
@@ -76,6 +77,17 @@ export async function POST(req: NextRequest) {
     }
     if (!items.length) {
       return NextResponse.json({ error: 'Au moins une ligne requise' }, { status: 400 })
+    }
+
+    // ── Blocage commande si niveau relance >= 2 ───────────────────────────────
+    if (isOdooConfigured() && billing?.email) {
+      const followup = await getPartnerFollowupInfo(billing.email)
+      if (followup.level >= 2) {
+        return NextResponse.json(
+          { error: "Votre compte est bloqué en raison de factures impayées. Veuillez régulariser votre situation pour passer commande." },
+          { status: 403 },
+        )
+      }
     }
 
     const orderNumber = generateOrderNumber()

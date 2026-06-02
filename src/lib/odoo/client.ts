@@ -239,3 +239,155 @@ export function isOdooConfigured(): boolean {
   return !!(process.env.ODOO_URL && process.env.ODOO_DB &&
             process.env.ODOO_USERNAME && process.env.ODOO_API_KEY)
 }
+
+// ─── Invoices & Follow-up ─────────────────────────────────────────────────────
+
+export interface OdooInvoice {
+  id: number
+  name: string
+  invoice_date: string
+  invoice_date_due: string
+  ref: string | false
+  amount_total: number
+  amount_residual: number
+  payment_state: 'not_paid' | 'in_payment' | 'paid' | 'partial' | 'reversed'
+  state: 'draft' | 'posted' | 'cancel'
+}
+
+export interface PartnerFollowupInfo {
+  blocked: boolean
+  level: number
+  overdue_amount: number
+  oldest_due_date: string | null
+}
+
+/**
+ * Récupère toutes les factures postées d'un client par email.
+ */
+export async function getPartnerInvoices(email: string): Promise<OdooInvoice[]> {
+  if (!isOdooConfigured()) return []
+  try {
+    const url    = process.env.ODOO_URL!.replace(/\/$/, '')
+    const db     = process.env.ODOO_DB!
+    const user   = process.env.ODOO_USERNAME!
+    const apiKey = process.env.ODOO_API_KEY!
+
+    const uid = await getUid(url, db, user, apiKey)
+
+    // Find partner id by email
+    const partners = await callKw(url, db, uid, apiKey, 'res.partner', 'search_read',
+      [[['email', '=ilike', email]]],
+      { fields: ['id'], limit: 1 },
+    ) as Array<{ id: number }>
+
+    if (!partners.length) return []
+    const partnerId = partners[0].id
+
+    const invoices = await callKw(url, db, uid, apiKey, 'account.move', 'search_read',
+      [[
+        ['partner_id', '=', partnerId],
+        ['move_type', '=', 'out_invoice'],
+        ['state', '=', 'posted'],
+      ]],
+      {
+        fields: ['name', 'invoice_date', 'invoice_date_due', 'ref', 'amount_total', 'amount_residual', 'payment_state', 'state'],
+        order: 'invoice_date desc',
+        limit: 100,
+      },
+    ) as OdooInvoice[]
+
+    return invoices
+  } catch (err) {
+    console.error('[Odoo] getPartnerInvoices error:', err)
+    return []
+  }
+}
+
+/**
+ * Récupère le statut de relance d'un client (niveau de rappel).
+ * Niveau 0: RAS — Niveau 1: Rappel envoyé — Niveau 2: BLOQUÉ
+ *
+ * - Niveau 2 (bloqué) : factures impayées > 60 jours après échéance OU x_order_blocked = true
+ * - Niveau 1 : factures impayées > 15 jours après échéance
+ * - Niveau 0 : tout est ok
+ */
+export async function getPartnerFollowupInfo(email: string): Promise<PartnerFollowupInfo> {
+  const empty: PartnerFollowupInfo = { blocked: false, level: 0, overdue_amount: 0, oldest_due_date: null }
+  if (!isOdooConfigured()) return empty
+  try {
+    const url    = process.env.ODOO_URL!.replace(/\/$/, '')
+    const db     = process.env.ODOO_DB!
+    const user   = process.env.ODOO_USERNAME!
+    const apiKey = process.env.ODOO_API_KEY!
+
+    const uid = await getUid(url, db, user, apiKey)
+
+    // Find partner with follow-up fields
+    let partners: Array<{ id: number; credit?: number; x_order_blocked?: boolean }>
+    try {
+      partners = await callKw(url, db, uid, apiKey, 'res.partner', 'search_read',
+        [[['email', '=ilike', email]]],
+        { fields: ['id', 'credit', 'x_order_blocked'], limit: 1 },
+      ) as Array<{ id: number; credit?: number; x_order_blocked?: boolean }>
+    } catch {
+      // x_order_blocked may not exist — retry without it
+      partners = await callKw(url, db, uid, apiKey, 'res.partner', 'search_read',
+        [[['email', '=ilike', email]]],
+        { fields: ['id', 'credit'], limit: 1 },
+      ) as Array<{ id: number; credit?: number }>
+    }
+
+    if (!partners.length) return empty
+    const partner = partners[0]
+    const forceBlocked = partner.x_order_blocked === true
+
+    // Fetch unpaid invoices
+    const invoices = await callKw(url, db, uid, apiKey, 'account.move', 'search_read',
+      [[
+        ['partner_id', '=', partner.id],
+        ['move_type', '=', 'out_invoice'],
+        ['state', '=', 'posted'],
+        ['payment_state', 'in', ['not_paid', 'partial']],
+      ]],
+      { fields: ['invoice_date_due', 'amount_residual'], limit: 200 },
+    ) as Array<{ invoice_date_due: string; amount_residual: number }>
+
+    if (!invoices.length && !forceBlocked) return empty
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    let maxDaysOverdue = 0
+    let totalOverdue = 0
+    let oldestDueDate: string | null = null
+
+    for (const inv of invoices) {
+      if (!inv.invoice_date_due) continue
+      const due = new Date(inv.invoice_date_due)
+      due.setHours(0, 0, 0, 0)
+      const diffMs = today.getTime() - due.getTime()
+      if (diffMs <= 0) continue // not yet due
+
+      const daysOverdue = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+      totalOverdue += inv.amount_residual
+      if (daysOverdue > maxDaysOverdue) {
+        maxDaysOverdue = daysOverdue
+        oldestDueDate = inv.invoice_date_due
+      }
+    }
+
+    let level = 0
+    if (forceBlocked || maxDaysOverdue > 60) level = 2
+    else if (maxDaysOverdue > 15) level = 1
+
+    return {
+      blocked: level >= 2,
+      level,
+      overdue_amount: totalOverdue,
+      oldest_due_date: oldestDueDate,
+    }
+  } catch (err) {
+    console.error('[Odoo] getPartnerFollowupInfo error:', err)
+    return empty
+  }
+}

@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { FileUp, SlidersHorizontal, Truck, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
+import LottiePlayer from '@/components/ui/LottiePlayer'
 
 // ── Mockup : lignes auto-détectées ───────────────────────────────────────────
 
@@ -246,25 +247,31 @@ export default function ProcessSection() {
               viewport={{ once: true }}
               transition={{ duration: 0.7, delay: i * 0.15, ease: [0.16, 1, 0.3, 1] }}
             >
-              {/* Icon */}
+              {/* Icon avec Lottie overlay */}
               <motion.div
                 className="relative w-fit"
-                animate={{ y: [0, -5, 0] }}
+                animate={{ y: [0, -8, 0], rotate: [0, 1, -1, 0] }}
                 transition={{ duration: 3 + i * 0.4, repeat: Infinity, ease: 'easeInOut', delay: i * 0.9 }}
               >
-                <div className="absolute -inset-3 rounded-3xl blur-xl opacity-50" style={{ background: step.glow }} />
+                <div className="absolute -inset-3 rounded-3xl blur-xl opacity-60" style={{ background: step.glow }} />
                 <div
-                  className="relative w-[88px] h-[88px] rounded-2xl flex items-center justify-center"
+                  className="relative w-[96px] h-[96px] rounded-2xl flex items-center justify-center overflow-hidden"
                   style={{ background: step.glow, border: `1.5px solid ${step.border}`, boxShadow: `0 8px 32px ${step.glow}` }}
                 >
-                  <step.icon className="w-9 h-9" style={{ color: step.accent }} />
+                  {/* Lottie en overlay sur l'icône */}
+                  {i === 0 && <LottiePlayer src="/animations/scan.json" className="absolute inset-0 w-full h-full opacity-70" loop autoplay />}
+                  {i === 1 && <LottiePlayer src="/animations/check.json" className="absolute inset-0 w-full h-full opacity-60" loop autoplay />}
+                  {i === 2 && <LottiePlayer src="/animations/success.json" className="absolute inset-0 w-full h-full opacity-70" loop autoplay />}
+                  <step.icon className="relative z-10 w-8 h-8 opacity-60" style={{ color: step.accent }} />
                 </div>
-                <div
-                  className="absolute -top-3 -right-3 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white"
+                <motion.div
+                  className="absolute -top-3 -right-3 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white shadow-lg"
                   style={{ background: step.accent }}
+                  animate={{ scale: [1, 1.15, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
                 >
                   {i + 1}
-                </div>
+                </motion.div>
               </motion.div>
 
               {/* Big ghost number */}
