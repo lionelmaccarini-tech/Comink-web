@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
-import { createServiceClient } from '@/lib/supabase/server'
+import { notFound, redirect } from 'next/navigation'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import ProduitClient from '@/components/produit/ProduitClient'
 import type { Product } from '@/types'
 
@@ -61,6 +61,30 @@ export default async function ProduitPage({ params }: Props) {
   const { id } = await params
   const product = await getProduct(id)
   if (!product) notFound()
+
+  // ── Contrôle d'accès par price list ──────────────────────────────────────────
+  const restricted: string[] = (product as any).restricted_to_price_lists ?? []
+  if (restricted.length > 0) {
+    try {
+      const authClient = await createClient()
+      const { data: { user } } = await authClient.auth.getUser()
+      if (!user) redirect(`/auth/login?redirect=/produit/${id}`)
+
+      const supabase = await createServiceClient()
+      const [{ data: profile }, { data: account }] = await Promise.all([
+        supabase.from('profiles').select('role').eq('id', user.id).single(),
+        supabase.from('client_accounts').select('price_list_id').eq('user_id', user.id).single(),
+      ])
+      // Staff (admin/collaborateur/producteur) → accès total
+      const isStaff = ['admin', 'collaborateur', 'producteur'].includes(profile?.role ?? '')
+      if (!isStaff && (!account?.price_list_id || !restricted.includes(account.price_list_id))) {
+        notFound()
+      }
+    } catch {
+      notFound()
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   // JSON-LD structured data (Product schema)
   const canonical = `${SITE_URL}/produit/${product.id}`

@@ -81,7 +81,9 @@ export interface Product {
 }
 
 export interface StandardSize {
-  label: string
+  id?: string
+  label?: string   // ancien champ — peut être absent
+  name?: string    // nouveau champ DB
   width_cm: number
   height_cm: number
   price: number

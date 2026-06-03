@@ -122,7 +122,7 @@ export default function FileCheckerClient() {
 
   // Chargement du catalogue réel
   React.useEffect(() => {
-    fetch('/api/admin/products')
+    fetch('/api/products/public')
       .then(r => r.json())
       .then((data: Array<{ id: string; name: string; category: string; available: boolean }>) => {
         const available = (Array.isArray(data) ? data : [])

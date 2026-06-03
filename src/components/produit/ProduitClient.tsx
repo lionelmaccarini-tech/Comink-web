@@ -468,19 +468,40 @@ export default function ProduitClient({ product }: Props) {
             </p>
             <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-3">{product.name}</h1>
 
-            {/* ── Taille standard ── */}
+            {/* ── Taille standard — liste de lignes ── */}
             {!isSurMesure && (product.standard_sizes?.length ?? 0) > 0 && (
               <div className="mb-6">
                 <p className="text-sm font-bold text-slate-700 mb-2">Choisissez une taille</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {(product.standard_sizes ?? []).map(size => (
-                    <button key={size.label} onClick={() => setSelectedSize(size)}
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${selectedSize?.label === size.label ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'}`}>
-                      <p className="text-sm font-bold text-slate-900">{size.label}</p>
-                      <p className="text-xs text-slate-500">{size.width_cm}×{size.height_cm} cm</p>
-                      <p className="text-sm font-bold text-blue-600 mt-1">{formatPrice(size.price)}</p>
-                    </button>
-                  ))}
+                <div className="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                  {(product.standard_sizes ?? []).map((size, idx) => {
+                    const sizeKey = size.id ?? size.name ?? size.label ?? idx
+                    const sizeName = size.name || size.label || `${size.width_cm}×${size.height_cm} cm`
+                    const isSel = selectedSize
+                      ? (selectedSize.id ? selectedSize.id === size.id : selectedSize.width_cm === size.width_cm && selectedSize.height_cm === size.height_cm)
+                      : false
+                    return (
+                      <button
+                        key={String(sizeKey)}
+                        onClick={() => setSelectedSize(size)}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-all ${
+                          isSel
+                            ? 'bg-blue-600 border-l-4 border-l-blue-700'
+                            : 'bg-white hover:bg-blue-50/50 border-l-4 border-l-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${isSel ? 'border-white bg-white' : 'border-slate-300'}`}>
+                            {isSel && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold ${isSel ? 'text-white' : 'text-slate-900'}`}>{sizeName}</p>
+                            <p className={`text-xs ${isSel ? 'text-blue-100' : 'text-slate-400'}`}>{size.width_cm} × {size.height_cm} cm</p>
+                          </div>
+                        </div>
+                        <p className={`text-sm font-black ${isSel ? 'text-white' : 'text-slate-700'}`}>{formatPrice(size.price)}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -756,75 +777,70 @@ export default function ProduitClient({ product }: Props) {
               </div>
             )}
 
-            {/* ─── Délai de production ─── */}
+            {/* ─── Délai de production — timeline ─── */}
             {delais.length > 0 && (
               <div className="mb-6">
-                <p className="text-sm font-bold text-slate-700 mb-3">Délai de production</p>
-                <div className="relative">
-                  {/* Connecting line: center-to-center of first and last pill */}
-                  <div className="absolute h-0.5 bg-slate-200 z-0"
-                    style={{ top: 28, left: `calc(50% / ${delais.length})`, right: `calc(50% / ${delais.length})` }} />
+                <p className="text-sm font-bold text-slate-700 mb-4">Délai de production</p>
 
-                  <div className="flex w-full gap-1">
+                {/* Timeline */}
+                <div className="relative">
+                  {/* Ligne de fond */}
+                  <div className="absolute top-5 left-5 right-5 h-0.5 bg-slate-200 z-0" />
+                  {/* Ligne de progression jusqu'au délai sélectionné */}
+                  {selectedDelai && (() => {
+                    const sorted = [...delais].sort((a: any, b: any) => a.days - b.days)
+                    const idx = sorted.findIndex((d: any) => d.id === selectedDelai?.id)
+                    const pct = delais.length > 1 ? (idx / (sorted.length - 1)) * 100 : 100
+                    return (
+                      <div className="absolute top-5 left-5 h-0.5 bg-blue-400 z-0 transition-all duration-300"
+                        style={{ width: `calc((100% - 40px) * ${pct / 100})` }} />
+                    )
+                  })()}
+
+                  <div className="flex justify-between relative z-10">
                     {[...delais].sort((a: any, b: any) => a.days - b.days).map((d: any) => {
                       const isSel = selectedDelai?.id === d.id
-                      const pct   = d.surcharge_percent || 0
-                      const dt    = addWorkingDays(d.days)
-                      const day   = dt.getDate()
-                      const mon   = dt.toLocaleDateString('fr-BE', { month: 'short' })
-                      const wday  = dt.toLocaleDateString('fr-BE', { weekday: 'short' })
-
+                      const pct = d.surcharge_percent || 0
+                      const prodDate   = addWorkingDays(d.days)
+                      const stdDate    = addWorkingDays(d.days + 2)
+                      const fmtShort   = (dt: Date) => dt.toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' })
                       return (
-                        <button
-                          key={d.id}
-                          onClick={() => setSelectedDelai(d)}
-                          title={d.label}
-                          className="flex-1 flex flex-col items-center relative z-10 min-w-0 group"
-                        >
-                          {/* Date pill */}
-                          <div className={`w-full h-14 rounded-2xl border-2 flex flex-col items-center justify-center mb-1.5 transition-all
-                            ${isSel
-                              ? 'bg-blue-600 border-blue-600 shadow-lg scale-105'
-                              : 'bg-white border-slate-200 group-hover:border-blue-400 group-hover:shadow-sm'}`}>
-                            <span className={`text-sm font-extrabold leading-tight ${isSel ? 'text-white' : 'text-slate-800'}`}>
-                              {day} {mon}
-                            </span>
-                            <span className={`text-[10px] font-medium leading-none mt-0.5 ${isSel ? 'text-blue-100' : 'text-slate-400'}`}>
-                              {wday}
-                            </span>
+                        <button key={d.id} onClick={() => setSelectedDelai(d)}
+                          className={`flex flex-col items-center gap-1 group min-w-0 rounded-xl px-1 py-1.5 transition-all ${isSel ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                          {/* Point sur la timeline */}
+                          <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+                            isSel ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-200' : 'bg-white border-slate-300 group-hover:border-blue-400'
+                          }`}>
+                            <span className={`text-xs font-black ${isSel ? 'text-white' : 'text-slate-500'}`}>{d.days}j</span>
                           </div>
 
-                          {/* Price badge */}
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                            ${pct === 0
-                              ? 'bg-green-50 text-green-600 border border-green-200'
-                              : pct <= 20
-                              ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                              : 'bg-red-50 text-red-500 border border-red-200'}`}>
-                            {pct === 0 ? 'Std' : `+${pct}%`}
-                          </span>
+                          {/* Badge surcharge */}
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            pct === 0 ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' :
+                            pct <= 20 ? 'bg-amber-50 text-amber-600 border border-amber-200' :
+                            'bg-red-50 text-red-500 border border-red-200'
+                          }`}>{pct === 0 ? 'Std' : `+${pct}%`}</span>
+
+                          {/* 3 dates de livraison sous la vignette */}
+                          <div className={`mt-1 space-y-0.5 text-center ${isSel ? '' : 'opacity-60'}`}>
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[9px]">🏭</span>
+                              <span className={`text-[9px] font-semibold ${isSel ? 'text-blue-700' : 'text-slate-500'}`}>{fmtShort(prodDate)}</span>
+                            </div>
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[9px]">📦</span>
+                              <span className={`text-[9px] font-semibold ${isSel ? 'text-slate-700' : 'text-slate-400'}`}>{fmtShort(stdDate)}</span>
+                            </div>
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="text-[9px]">⚡</span>
+                              <span className={`text-[9px] font-semibold ${isSel ? 'text-orange-600' : 'text-slate-400'}`}>{fmtShort(prodDate)}</span>
+                            </div>
+                          </div>
                         </button>
                       )
                     })}
                   </div>
-
-                  {/* Selected label shown below when not isSel inline */}
-                  {selectedDelai && (
-                    <p className="text-xs text-slate-500 mt-2 text-center">
-                      <strong className="text-slate-700">{selectedDelai.label}</strong>
-                      {' — livraison le '}
-                      <strong className="text-blue-600">
-                        {addWorkingDays(selectedDelai.days).toLocaleDateString('fr-BE', { weekday:'long', day:'numeric', month:'long' })}
-                      </strong>
-                    </p>
-                  )}
                 </div>
-
-                {delaiSurcharge > 0 && (
-                  <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
-                    Supplément délai : <strong className="text-slate-700">+{formatPrice(delaiSurcharge)}</strong>
-                  </p>
-                )}
               </div>
             )}
 
@@ -865,23 +881,25 @@ export default function ProduitClient({ product }: Props) {
               </div>
             )}
 
-            {/* ─── CTAs ─── */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            {/* ─── CTA ─── */}
+            <div className="mb-6">
               <button onClick={handleAddToCart} disabled={hasError}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm">
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm">
                 {added ? <><CheckCircle className="w-4 h-4" /> Ajouté au panier !</> : <><ShoppingCart className="w-4 h-4" /> Ajouter au panier</>}
               </button>
-              <Link href="/devis"
-                className="flex items-center justify-center gap-2 border-2 border-slate-200 hover:border-blue-400 text-slate-700 font-bold py-3.5 px-6 rounded-xl transition-colors text-sm">
-                <FileText className="w-4 h-4" /> Devis
-              </Link>
+            </div>
+
+            {/* Légende livraison — compacte */}
+            <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400">
+              <span className="flex items-center gap-1"><span>🏭</span> Enlèvement</span>
+              <span className="flex items-center gap-1"><span>📦</span> Standard +2j</span>
+              <span className="flex items-center gap-1"><span>⚡</span> Express même jour</span>
             </div>
 
             {/* ─── Réassurance ─── */}
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
-              <p className="flex items-center gap-2 text-xs text-slate-600"><CheckCircle className="w-3.5 h-3.5 text-green-500" /> Production locale à Liège</p>
-              <p className="flex items-center gap-2 text-xs text-slate-600"><CheckCircle className="w-3.5 h-3.5 text-green-500" /> Paiement 100% sécurisé (Stripe)</p>
-              <p className="flex items-center gap-2 text-xs text-slate-600"><CheckCircle className="w-3.5 h-3.5 text-green-500" /> Livraison ou enlèvement sur place</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <p className="flex items-center gap-1.5 text-[11px] text-slate-500"><CheckCircle className="w-3 h-3 text-green-500" /> Production locale à Liège</p>
+              <p className="flex items-center gap-1.5 text-[11px] text-slate-500"><CheckCircle className="w-3 h-3 text-green-500" /> Paiement sécurisé Stripe</p>
             </div>
           </div>
         </div>

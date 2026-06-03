@@ -132,6 +132,18 @@ export default function FloatingSidebar() {
               </div>
             </Link>
 
+            {/* Commande rapide */}
+            <Link
+              href="/commande-rapide"
+              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700/50 hover:border-yellow-500/30 transition-colors group"
+            >
+              <div className="w-5 h-5 rounded-lg bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-[10px]">⚡</span>
+              </div>
+              <p className="text-[10px] text-slate-400 group-hover:text-slate-200 transition-colors font-semibold">Commande rapide</p>
+            </Link>
+
             {/* Vérifier fichier */}
             <Link
               href="/verifier-fichier"

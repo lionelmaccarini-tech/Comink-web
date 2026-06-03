@@ -5,6 +5,7 @@ import { addWorkingDaysISO } from '@/lib/workingDays'
 import { syncOrderToOdoo, OdooOrderItem } from '@/lib/odoo/syncOrder'
 import { isIntraCommunityVAT } from '@/lib/utils'
 import { getPartnerFollowupInfo, isOdooConfigured } from '@/lib/odoo/client'
+import { sendOrderConfirmationEmail } from '@/lib/email/resend'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -256,6 +257,27 @@ export async function POST(req: NextRequest) {
       }
     } catch (prodErr) {
       console.error('[wire order] production lines error:', prodErr)
+    }
+
+    // ── Email confirmation (non-bloquant) ────────────────────────────────────
+    try {
+      const clientName = billing?.name || authUser?.email || ''
+      if (clientEmail && clientName) {
+        await sendOrderConfirmationEmail({
+          order_number: orderNumber,
+          client_name: clientName,
+          client_email: clientEmail,
+          items: (items as any[]).map((item: any) => ({
+            name: item.product?.name || 'Impression',
+            quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+          })),
+          total: total_ttc || 0,
+          delivery_method: delivery_method || 'pickup',
+        })
+      }
+    } catch (emailErr) {
+      console.error('[wire order] email error:', emailErr)
     }
 
     return NextResponse.json({ order_number: orderNumber, success: true })
