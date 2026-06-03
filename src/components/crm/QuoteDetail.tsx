@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Edit3, CheckCircle, XCircle, Clock, MessageSquare, Phone, Mail, Notebook, Activity, Package } from 'lucide-react'
+import { ArrowLeft, Send, Edit3, CheckCircle, XCircle, Clock, MessageSquare, Phone, Mail, Notebook, Activity, Package, ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ConvertToOrderModal from './ConvertToOrderModal'
 
@@ -34,6 +34,8 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
   const [activities, setActivities] = useState<any[]>([])
   const [loading,    setLoading]    = useState(true)
   const [sending,    setSending]    = useState(false)
+  const [sendingToClient, setSendingToClient] = useState(false)
+  const [sentToClientMsg, setSentToClientMsg] = useState<string | null>(null)
   const [newNote,    setNewNote]    = useState('')
   const [noteType,   setNoteType]   = useState<'note' | 'call' | 'meeting'>('note')
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null)
@@ -74,6 +76,29 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
       body: JSON.stringify({ pipeline_stage: stage, _updated_by: currentUser?.id }),
     })
     reload()
+  }
+
+  const sendToClient = async () => {
+    setSendingToClient(true)
+    setSentToClientMsg(null)
+    try {
+      const res = await fetch(`/api/crm/quotes/${quoteId}/send-to-client`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sent_by: currentUser?.id }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setSentToClientMsg(`Email envoyé à ${quote?.client_email}`)
+        reload()
+      } else {
+        setSentToClientMsg(data.error || 'Erreur lors de l\'envoi')
+      }
+    } catch {
+      setSentToClientMsg('Erreur lors de l\'envoi')
+    } finally {
+      setSendingToClient(false)
+    }
   }
 
   const addNote = async () => {
@@ -294,6 +319,21 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
                 <div className="flex items-center gap-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2 rounded-lg">
                   <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
                   Bon de commande <strong>{convertedOrderNumber}</strong> créé
+                </div>
+              )}
+
+              {/* Envoyer au client avec lien de validation */}
+              {quote.pipeline_stage !== 'won' && (
+                <button onClick={sendToClient} disabled={sendingToClient}
+                  className="w-full flex items-center gap-2 text-sm font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-2.5 rounded-lg transition-colors disabled:opacity-60">
+                  <ExternalLink className="w-4 h-4" />
+                  {sendingToClient ? 'Envoi...' : 'Envoyer au client'}
+                </button>
+              )}
+              {sentToClientMsg && (
+                <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${sentToClientMsg.startsWith('Email') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                  {sentToClientMsg.startsWith('Email') && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {sentToClientMsg}
                 </div>
               )}
 

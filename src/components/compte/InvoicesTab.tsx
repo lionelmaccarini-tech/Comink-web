@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, FileText, RefreshCw } from 'lucide-react'
+import { AlertTriangle, FileText, RefreshCw, Download, Loader2 } from 'lucide-react'
 import type { OdooInvoice, PartnerFollowupInfo } from '@/lib/odoo/client'
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -53,6 +53,31 @@ export default function InvoicesTab() {
   const [dunning, setDunning] = useState<PartnerFollowupInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+
+  const downloadPdf = async (inv: OdooInvoice) => {
+    setDownloadingId(inv.id)
+    try {
+      const res = await fetch(`/api/account/invoices/${inv.id}/pdf`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert((data as { error?: string }).error || 'Impossible de télécharger la facture.')
+        return
+      }
+      const blob = await res.blob()
+      const safeName = (inv.name || `facture-${inv.id}`).replace(/[^a-zA-Z0-9_-]/g, '_')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${safeName}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Erreur lors du téléchargement.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   async function load() {
     setLoading(true)
@@ -171,7 +196,8 @@ export default function InvoicesTab() {
                     <th className="pb-2 pr-4">Référence</th>
                     <th className="pb-2 pr-4 text-right">Total TTC</th>
                     <th className="pb-2 pr-4 text-right">Restant dû</th>
-                    <th className="pb-2">Statut</th>
+                    <th className="pb-2 pr-4">Statut</th>
+                    <th className="pb-2 text-center w-16">PDF</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,10 +229,22 @@ export default function InvoicesTab() {
                         <td className={`py-2.5 pr-4 text-right font-bold whitespace-nowrap ${inv.amount_residual > 0 ? 'text-red-600' : 'text-slate-400'}`}>
                           {fmtAmount(inv.amount_residual)}
                         </td>
-                        <td className="py-2.5">
+                        <td className="py-2.5 pr-4">
                           <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.className}`}>
                             {badge.label}
                           </span>
+                        </td>
+                        <td className="py-2.5 text-center">
+                          <button
+                            onClick={() => downloadPdf(inv)}
+                            disabled={downloadingId === inv.id}
+                            title="Télécharger le PDF"
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-40"
+                          >
+                            {downloadingId === inv.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Download className="w-3.5 h-3.5" />}
+                          </button>
                         </td>
                       </tr>
                     )
