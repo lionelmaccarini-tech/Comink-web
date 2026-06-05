@@ -108,6 +108,16 @@ async function generatePDFPageThumb(file: File, pageNum: number): Promise<string
   }
 }
 
+// ── Détecte le nombre de pages d'un PDF depuis les bytes bruts ───────────────
+async function getPdfPageCount(file: File): Promise<number> {
+  try {
+    const buffer = await file.arrayBuffer()
+    const text = new TextDecoder('latin1').decode(new Uint8Array(buffer))
+    const m = text.match(/\/Type\s*\/Page[^s]/g)
+    return m ? Math.max(1, m.length) : 1
+  } catch { return 1 }
+}
+
 // ── Détecte le mode colorimétrique en scannant les bytes bruts du PDF ────────
 async function scanCmykHint(file: File): Promise<'cmyk' | 'rgb' | 'unknown'> {
   try {
@@ -237,18 +247,18 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
   }
 
   const handleAddFile = useCallback(async (file: File) => {
-    const slotId   = genId()
-    // copies provisoires = restant (sera recalculé après détection pages)
-    const placeholder: CartFile = { id: slotId, file_name: file.name, copies: Math.max(1, remaining) }
-    const withPlaceholder = [...files, placeholder]
-    setFiles(withPlaceholder)
+    const slotId = genId()
+    const isPdf  = file.name.toLowerCase().endsWith('.pdf')
+    const MAX_PAGES = 50  // sécurité : pas de création de 1000 slots
+
+    // Placeholder visible immédiatement
+    setFiles(prev => [...prev, { id: slotId, file_name: file.name, copies: 0 }])
     setUploadingId(slotId)
     setUploadPhaseMap(m => ({ ...m, [slotId]: 'upload' }))
     setUploadProgressMap(m => ({ ...m, [slotId]: 0 }))
-    try {
-      const thumb = await generateImageThumb(file)
 
-      // 1. Obtenir URL pré-signée (contourne la limite 4.5MB de Vercel)
+    try {
+      // 1. Upload R2 via URL pré-signée
       const presignRes = await fetch('/api/r2-presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -257,68 +267,97 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
       const presignData = await presignRes.json()
       if (!presignRes.ok || !presignData.presignedUrl) throw new Error(presignData.error || 'Presign error')
 
-      // 2. Upload direct browser→R2 avec progression XHR (pas de limite Vercel)
-      const uploadData = await new Promise<{ url: string; name: string }>((resolve, reject) => {
+      const fileUrl = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadProgressMap(m => ({ ...m, [slotId]: Math.round(e.loaded / e.total * 100) })) }
-        xhr.onload = () => { xhr.status === 200 ? resolve({ url: presignData.publicUrl, name: file.name }) : reject(new Error(`Upload R2 failed: ${xhr.status}`)) }
+        xhr.onload = () => { xhr.status === 200 ? resolve(presignData.publicUrl) : reject(new Error(`Upload R2 failed: ${xhr.status}`)) }
         xhr.onerror = () => reject(new Error('Network error'))
         xhr.open('PUT', presignData.presignedUrl)
         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
         xhr.send(file)
       })
-      if (!uploadData.url) throw new Error('Upload error')
 
-      // ── Afficher le fichier IMMÉDIATEMENT après upload ──────────────────────
-      const fileInfo = { width_mm: 0, height_mm: 0, colorspace: 'unknown', pages: 1, dpi: null }
-      const updatedWithFile = withPlaceholder.map(f => f.id === slotId ? {
-        ...f,
-        copies:         Math.max(1, remaining),
-        file_url:       uploadData.url,
-        file_name:      file.name,
-        file_thumb:     thumb ?? undefined,
-        file_validated: true,
-        file_info:      fileInfo,
-      } : f)
-      setFiles(updatedWithFile)
-      syncToCart(updatedWithFile)
+      // 2. Détecter le nombre de pages
+      const totalPages = isPdf ? Math.min(await getPdfPageCount(file), MAX_PAGES) : 1
 
-      // ── Analyse Claude en arrière-plan : preview + CMYK hint ─────────────────
+      // 3. Calculer les copies à distribuer (copies restantes avant cet upload)
+      const copiesBeforeThis = files.reduce((s, f) => s + f.copies, 0)
+      const availCopies = Math.max(totalPages, item.quantity - copiesBeforeThis)
+      const copiesPerPage = Math.max(1, Math.floor(availCopies / totalPages))
+
+      const fileInfo = { width_mm: 0, height_mm: 0, colorspace: 'unknown', pages: totalPages, dpi: null }
+
+      // 4. Créer les slots (1 par page pour PDF, 1 pour image)
+      const newSlots: CartFile[] = totalPages > 1
+        ? Array.from({ length: totalPages }, (_, i) => ({
+            id:            i === 0 ? slotId : genId(),
+            file_url:      fileUrl,
+            file_name:     file.name,
+            file_thumb:    undefined,
+            file_validated: true,
+            file_info:     fileInfo,
+            copies:        copiesPerPage,
+            page_index:    i + 1,
+            total_pages:   totalPages,
+          }))
+        : [{
+            id:            slotId,
+            file_url:      fileUrl,
+            file_name:     file.name,
+            file_thumb:    undefined,
+            file_validated: true,
+            file_info:     fileInfo,
+            copies:        Math.max(1, item.quantity - copiesBeforeThis),
+          }]
+
+      // Remplacer le placeholder par les vrais slots
+      setFiles(prev => [...prev.filter(f => f.id !== slotId), ...newSlots])
+      syncToCart([...files.filter(f => f.id !== slotId), ...newSlots])
+
+      // 5. Générer les miniatures par page en arrière-plan
+      if (isPdf) {
+        newSlots.forEach(async (slot) => {
+          const pg = slot.page_index ?? 1
+          const thumb = await generatePDFPageThumb(file, pg)
+          if (thumb) setFiles(prev => prev.map(f => f.id === slot.id ? { ...f, file_thumb: thumb } : f))
+        })
+      } else {
+        const thumb = await generateImageThumb(file)
+        if (thumb) setFiles(prev => prev.map(f => f.id === slotId ? { ...f, file_thumb: thumb } : f))
+      }
+
+      // 6. Analyse Claude page 1 (preview + CMYK hint)
       setUploadPhaseMap(m => ({ ...m, [slotId]: 'analyze' }))
       const dims = item.width_cm && item.height_cm ? `${item.width_cm} × ${item.height_cm} cm` : undefined
-      const isPdf = file.name.toLowerCase().endsWith('.pdf')
-      // Pour les PDFs : génère preview page 1 + scan CMYK bytes en parallèle
       const [cmykHint, previewDataUrl] = await Promise.all([
         isPdf ? scanCmykHint(file) : Promise.resolve('unknown' as const),
         isPdf ? generatePdfAnalysisPreview(file) : Promise.resolve(null),
       ])
-      // Upload le preview si disponible (clé prédictible = mainKey + '.preview.jpg')
       const analysisUrl = previewDataUrl ? await uploadPreviewToR2(previewDataUrl, presignData.key) : null
       const ctrl = new AbortController()
       setTimeout(() => ctrl.abort(), 60_000)
       try {
         const r = await fetch('/api/crm/analyze-file', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
-          body: JSON.stringify({
-            file_url:     uploadData.url,
-            analysis_url: analysisUrl,   // petit JPEG page 1 si disponible
-            cmyk_hint:    cmykHint,       // CMYK détecté depuis bytes PDF
-            file_name:    file.name,
-            dimensions:   dims,
-          }),
+          body: JSON.stringify({ file_url: fileUrl, analysis_url: analysisUrl, cmyk_hint: cmykHint, file_name: file.name, dimensions: dims }),
         })
         const analysis = await r.json()
-        if (!analysis.error) setSlotAnalysis(prev => ({ ...prev, [slotId]: analysis }))
-      } catch { /* timeout ou erreur silencieuse */ }
+        // Appliquer l'analyse à tous les slots de ce fichier
+        if (!analysis.error) setSlotAnalysis(prev => {
+          const patch: Record<string, any> = {}
+          newSlots.forEach(s => { patch[s.id] = analysis })
+          return { ...prev, ...patch }
+        })
+      } catch { /* silent */ }
+
     } catch (err) {
       console.error(err)
-      const updated = withPlaceholder.filter(f => f.id !== slotId)
-      setFiles(updated)
-      syncToCart(updated)
+      setFiles(prev => prev.filter(f => f.id !== slotId))
+      syncToCart(files.filter(f => f.id !== slotId))
     } finally {
       setUploadingId(null)
     }
-  }, [files, remaining, item.id, item.width_cm, item.height_cm, syncToCart])
+  }, [files, item.id, item.quantity, item.width_cm, item.height_cm, syncToCart])
 
   const acceptScale = (slotId: string, scale: number) => {
     setSlotScales(prev => ({ ...prev, [slotId]: true }))
