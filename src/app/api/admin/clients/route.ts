@@ -1,25 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 
-export async function GET() {
-  const supabase = await createServiceClient()
-  const { data, error } = await supabase
+export async function GET(req: NextRequest) {
+  const supabase = createAdminClient()
+  const { searchParams } = new URL(req.url)
+  const search = searchParams.get('search') || ''
+  const page   = parseInt(searchParams.get('page') || '1')
+  const limit  = 50
+  const from   = (page - 1) * limit
+  const to     = from + limit - 1
+
+  // Requête simple sans jointures pour éviter la récursion RLS sur client_account_members
+  let query = supabase
     .from('client_accounts')
-    .select(`
-      *,
-      price_list:price_lists(id, name, discount_percent),
-      members:client_account_members(
-        id, role, created_at,
-        profile:profiles(id, email, full_name, phone)
-      )
-    `)
-    .order('created_at', { ascending: false })
+    .select(
+      'id, name, email, phone, vat_number, address_line1, city, postal_code, country, is_active, discount_percent, billing_end_of_month, price_list_id, notes, created_at, updated_at',
+      { count: 'exact' }
+    )
+    .order('name', { ascending: true })
+    .range(from, to)
+
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,vat_number.ilike.%${search}%`)
+  }
+
+  const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  // Récupérer les price lists séparément (sans join pour éviter la récursion)
+  const priceListIds = [...new Set((data ?? []).map((c: any) => c.price_list_id).filter(Boolean))]
+  let priceListMap: Record<string, any> = {}
+  if (priceListIds.length > 0) {
+    const { data: pls } = await supabase
+      .from('price_lists')
+      .select('id, name, discount_percent')
+      .in('id', priceListIds)
+    ;(pls ?? []).forEach((pl: any) => { priceListMap[pl.id] = pl })
+  }
+
+  const enriched = (data ?? []).map((c: any) => ({
+    ...c,
+    price_list: c.price_list_id ? priceListMap[c.price_list_id] ?? null : null,
+  }))
+
+  return NextResponse.json({ data: enriched, total: count ?? 0, page, limit })
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServiceClient()
+  const supabase = createAdminClient()
   const body = await req.json()
 
   const { data, error } = await supabase
@@ -48,7 +76,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const supabase = await createServiceClient()
+  const supabase = createAdminClient()
   const body = await req.json()
   const { id, ...rest } = body
 
@@ -64,7 +92,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createServiceClient()
+  const supabase = createAdminClient()
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })

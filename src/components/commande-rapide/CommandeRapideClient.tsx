@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { Plus, Trash2, ShoppingCart, Upload, FileText, AlertCircle, CheckCircle, X, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react'
+import LottiePlayer from '@/components/ui/LottiePlayer'
 import { cn } from '@/lib/utils'
 import { useCart } from '@/hooks/useCart'
 import { formatPrice, calculatePricePerM2 } from '@/lib/utils'
@@ -65,6 +66,14 @@ interface ProductInfo {
   available: boolean
 }
 
+interface FileAnalysis {
+  score: number
+  status: 'ok' | 'warning' | 'error'
+  summary: string
+  checks: Array<{ id: string; label: string; status: 'ok' | 'warning' | 'error'; message: string; detail?: string }>
+  recommendations?: string[]
+}
+
 interface ProductRow {
   id: string
   product_id: string
@@ -75,6 +84,22 @@ interface ProductRow {
   selectedFinitions: Record<string, string | string[]>
   selectedDelai: any
   selectedSides: Record<string, string[]>
+
+  // Fichier
+  fileObj?: File
+  fileUrl?: string
+  fileName?: string
+
+  // État upload+analyse
+  uploadProgress: number
+  fileState: 'none' | 'uploading' | 'analyzing' | 'done' | 'error'
+
+  // Résultat analyse
+  analysis?: FileAnalysis
+
+  // BAT
+  batNote: string
+  forceValidate: boolean
 }
 
 // ── PDF helpers ───────────────────────────────────────────────────────────────
@@ -132,7 +157,36 @@ function initRowConfig(p: ProductInfo): Pick<ProductRow, 'selectedFinitions' | '
 }
 
 function emptyRow(): ProductRow {
-  return { id: rowId(), product_id: '', width_cm: '', height_cm: '', quantity: 1, expanded: false, selectedFinitions: {}, selectedDelai: null, selectedSides: {} }
+  return { id: rowId(), product_id: '', width_cm: '', height_cm: '', quantity: 1, expanded: false, selectedFinitions: {}, selectedDelai: null, selectedSides: {}, uploadProgress: 0, fileState: 'none', batNote: '', forceValidate: false }
+}
+
+// ── Upload with progress ──────────────────────────────────────────────────────
+
+function uploadFileWithProgress(
+  file: File,
+  onProgress: (pct: number) => void
+): Promise<{ url: string; name: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('itemId', `cr-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100))
+    }
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        try { resolve(JSON.parse(xhr.responseText)) }
+        catch { reject(new Error('Invalid response')) }
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Network error'))
+    xhr.open('POST', '/api/r2-upload')
+    xhr.send(fd)
+  })
 }
 
 /** Formate un supplément de prix selon son type */
@@ -196,6 +250,55 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
       return [...r.slice(0, idx + 1), newRow, ...r.slice(idx + 1)]
     })
   }
+
+  // ── Upload + analyse ──────────────────────────────────────────────────────
+
+  const uploadAndAnalyzeRow = useCallback(async (rowId: string, file: File, row: ProductRow) => {
+    // 1. Upload avec progression
+    updateRow(rowId, { fileState: 'uploading', uploadProgress: 0 })
+
+    let uploadResult: { url: string; name: string }
+    try {
+      uploadResult = await uploadFileWithProgress(file, (pct) => {
+        updateRow(rowId, { uploadProgress: pct })
+      })
+      updateRow(rowId, { fileUrl: uploadResult.url, fileName: uploadResult.name, uploadProgress: 100 })
+    } catch {
+      updateRow(rowId, { fileState: 'error', uploadProgress: 0 })
+      return
+    }
+
+    // 2. Analyse avec timeout 30s
+    updateRow(rowId, { fileState: 'analyzing' })
+    const ctrl = new AbortController()
+    const timeout = setTimeout(() => ctrl.abort(), 30_000)
+
+    try {
+      const dims = row.width_cm && row.height_cm ? `${row.width_cm} × ${row.height_cm} cm` : undefined
+      const product = products.find(p => p.id === row.product_id)
+
+      const res = await fetch('/api/crm/analyze-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          file_url: uploadResult.url,
+          file_name: uploadResult.name,
+          product_name: product?.name,
+          dimensions: dims,
+        }),
+      })
+      const result = await res.json()
+      updateRow(rowId, {
+        fileState: 'done',
+        analysis: result.error ? undefined : result,
+      })
+    } catch {
+      updateRow(rowId, { fileState: 'done' }) // timeout ou erreur — pas d'analyse
+    } finally {
+      clearTimeout(timeout)
+    }
+  }, [products, updateRow])
 
   // ── Price calculation ──────────────────────────────────────────────────────
 
@@ -278,7 +381,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
         totalPages += pages.length
         const defaultProduct = surMesureProducts[0]
         const defaultConfig = defaultProduct ? initRowConfig(defaultProduct) : { selectedFinitions: {}, selectedDelai: null, selectedSides: {} }
-        pages.forEach(pg => {
+        pages.forEach((pg, pageIdx) => {
           allNewRows.push({
             id: rowId(),
             product_id: defaultProduct?.id ?? '',
@@ -287,6 +390,12 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
             quantity: 1,
             expanded: false,
             ...defaultConfig,
+            uploadProgress: 0,
+            fileState: 'none',
+            batNote: '',
+            forceValidate: false,
+            // Associer le fichier uniquement à la première page (une ligne par page, même fichier)
+            fileObj: pageIdx === 0 ? file : undefined,
           })
         })
       }
@@ -303,12 +412,21 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
       const fc = pdfs.length
       setImportInfo(`${totalPages} page${totalPages > 1 ? 's' : ''} importée${totalPages > 1 ? 's' : ''} depuis ${fc} fichier${fc > 1 ? 's' : ''}`)
+
+      // Déclencher upload+analyse pour chaque nouveau row qui a un fileObj
+      setTimeout(() => {
+        allNewRows.forEach(row => {
+          if (row.fileObj) {
+            uploadAndAnalyzeRow(row.id, row.fileObj, row)
+          }
+        })
+      }, 0)
     } catch {
       setImportError('Erreur lors de la lecture des PDFs.')
     } finally {
       setImporting(false)
     }
-  }, [surMesureProducts])
+  }, [surMesureProducts, uploadAndAnalyzeRow])
 
   // ── Add all to cart ───────────────────────────────────────────────────────
 
@@ -321,6 +439,14 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
       const p = getProduct(row.product_id)!
       if (p.product_type === 'sur_mesure') {
         if (!row.width_cm || !row.height_cm) { newErrors[row.id] = 'Dimensions requises'; valid = false }
+      }
+    }
+
+    // Vérifier les fichiers non conformes sans forceValidate
+    for (const row of rows) {
+      if (row.analysis?.status === 'error' && !row.forceValidate) {
+        newErrors[row.id] = 'Fichier non conforme — validez quand même ou corrigez le fichier'
+        valid = false
       }
     }
 
@@ -341,6 +467,10 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
         selectedFinitions: row.selectedFinitions,
         selectedDelai: row.selectedDelai,
         selectedSides: row.selectedSides,
+        file_url: row.fileUrl,
+        file_name: row.fileName,
+        file_analysis: row.analysis,
+        bat_note: row.batNote || undefined,
       } as any)
     }
 
@@ -568,10 +698,14 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
               disabled={importing}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-blue-300 text-blue-600 font-semibold text-sm hover:border-blue-500 hover:bg-blue-50 transition-all disabled:opacity-50"
             >
-              {importing
-                ? <><span className="animate-spin text-base">⏳</span> Lecture…</>
-                : <><Upload className="w-4 h-4" /> Importer des PDFs</>
-              }
+              {importing ? (
+                <>
+                  <LottiePlayer src="/animations/scan.json" className="w-5 h-5" loop autoplay />
+                  Lecture…
+                </>
+              ) : (
+                <><Upload className="w-4 h-4" /> Importer des PDFs</>
+              )}
             </button>
             <button
               onClick={addRow}
@@ -785,6 +919,128 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
                   {/* Expandable config panel */}
                   {row.expanded && <RowConfigPanel row={row} />}
+
+                  {/* Zone fichier — upload + analyse */}
+                  {row.fileState !== 'none' && (
+                    <div className="border-t border-slate-100 px-4 pt-3 pb-3 mt-0">
+
+                      {/* État upload */}
+                      {row.fileState === 'uploading' && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                            <LottiePlayer src="/animations/scan.json" className="w-5 h-5" loop autoplay />
+                            <span>Upload… {row.uploadProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1.5">
+                            <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-200"
+                              style={{ width: `${row.uploadProgress}%` }} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* État analyse */}
+                      {row.fileState === 'analyzing' && (
+                        <div className="flex items-center gap-2 text-xs text-violet-600">
+                          <LottiePlayer src="/animations/scan.json" className="w-5 h-5" loop autoplay />
+                          <span className="animate-pulse">Analyse IA en cours…</span>
+                        </div>
+                      )}
+
+                      {/* Résultat analyse */}
+                      {row.fileState === 'done' && row.analysis && (
+                        <div className="space-y-2">
+                          {/* CMYK — critique en premier */}
+                          {(() => {
+                            const cmykCheck = row.analysis.checks.find(c => c.id === 'color_mode')
+                            if (!cmykCheck) return null
+                            if (cmykCheck.status === 'error') return (
+                              <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg p-2.5">
+                                <span className="text-red-500 text-base flex-shrink-0">🚫</span>
+                                <div>
+                                  <p className="text-xs font-black text-red-700">FICHIER RGB — NON CONFORME</p>
+                                  <p className="text-[11px] text-red-600 mt-0.5">{cmykCheck.message}</p>
+                                </div>
+                              </div>
+                            )
+                            if (cmykCheck.status === 'ok') return (
+                              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+                                <span className="text-emerald-500">✓</span>
+                                <p className="text-xs font-bold text-emerald-700">CMJN ✓ Mode couleur conforme</p>
+                              </div>
+                            )
+                            return (
+                              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                                <span className="text-amber-500">⚠</span>
+                                <p className="text-xs font-semibold text-amber-700">{cmykCheck.message}</p>
+                              </div>
+                            )
+                          })()}
+
+                          {/* Score global */}
+                          <div className={cn(
+                            'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold',
+                            row.analysis.status === 'ok' ? 'bg-emerald-50 text-emerald-700' :
+                            row.analysis.status === 'warning' ? 'bg-amber-50 text-amber-700' :
+                            'bg-red-50 text-red-700'
+                          )}>
+                            <span>{row.analysis.summary}</span>
+                            <span className="text-base font-black">{row.analysis.score}/100</span>
+                          </div>
+
+                          {/* Autres checks (sans CMYK déjà affiché) */}
+                          <div className="space-y-1">
+                            {row.analysis.checks.filter(c => c.id !== 'color_mode').map(check => (
+                              <div key={check.id} className={cn(
+                                'flex items-start gap-1.5 text-[11px] px-2 py-1 rounded',
+                                check.status === 'ok' ? 'text-emerald-600' :
+                                check.status === 'warning' ? 'text-amber-600' : 'text-red-600'
+                              )}>
+                                <span className="flex-shrink-0">{check.status === 'ok' ? '✓' : check.status === 'warning' ? '⚠' : '✗'}</span>
+                                <span><strong>{check.label}</strong> — {check.message}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Si problèmes : option BAT + force validate */}
+                          {row.analysis.status !== 'ok' && (
+                            <div className="border border-amber-200 bg-amber-50 rounded-lg p-2.5 space-y-2">
+                              <p className="text-[11px] font-bold text-amber-800">
+                                {row.forceValidate ? '✓ Fichier accepté avec réserves' : '⚠ Ce fichier comporte des non-conformités'}
+                              </p>
+                              <textarea
+                                placeholder="Note BAT (ex: couleur RVB assumée, pas à l'échelle, etc.)"
+                                value={row.batNote}
+                                onChange={e => updateRow(row.id, { batNote: e.target.value })}
+                                className="w-full text-[11px] border border-amber-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white resize-none"
+                                rows={2}
+                              />
+                              <button
+                                onClick={() => updateRow(row.id, { forceValidate: !row.forceValidate })}
+                                className={cn(
+                                  'text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors',
+                                  row.forceValidate
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'bg-amber-500 text-white hover:bg-amber-600'
+                                )}
+                              >
+                                {row.forceValidate ? '✓ Validé avec réserves' : 'Valider quand même →'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Erreur upload */}
+                      {row.fileState === 'error' && (
+                        <p className="text-xs text-red-500">Erreur lors de l&apos;upload. Réessayez.</p>
+                      )}
+
+                      {/* Nom de fichier si uploadé */}
+                      {row.fileName && row.fileState !== 'uploading' && (
+                        <p className="text-[10px] text-slate-400 mt-1 truncate">📎 {row.fileName}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

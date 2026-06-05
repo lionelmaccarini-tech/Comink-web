@@ -49,12 +49,15 @@ export default function ConvertToOrderModal({ quote, currentUserId, onClose, onC
   // ── Analyse Claude ─────────────────────────────────────────────────────────
   async function analyzeFile(idx: number, url: string, name: string, item: any) {
     setAnalysing(a => ({ ...a, [idx]: true }))
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000) // 30s max
     try {
       const dims = item.width_cm && item.height_cm
         ? `${item.width_cm} × ${item.height_cm} cm` : undefined
       const res = await fetch('/api/crm/analyze-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           file_url: url,
           file_name: name,
@@ -64,8 +67,10 @@ export default function ConvertToOrderModal({ quote, currentUserId, onClose, onC
       })
       const result = await res.json()
       if (!result.error) setAnalyses(a => ({ ...a, [idx]: result }))
-    } catch {}
-    finally {
+    } catch {
+      // Timeout ou erreur réseau — on continue silencieusement
+    } finally {
+      clearTimeout(timeout)
       setAnalysing(a => ({ ...a, [idx]: false }))
     }
   }
@@ -212,10 +217,23 @@ export default function ConvertToOrderModal({ quote, currentUserId, onClose, onC
                       />
 
                       {/* Analyse Claude */}
-                      <FileAnalysisResult
-                        result={analyses[idx] ?? null}
-                        loading={analysing[idx] ?? false}
-                      />
+                      {analysing[idx] && (
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-slate-400 animate-pulse">Analyse en cours…</span>
+                          <button
+                            onClick={() => setAnalysing(a => ({ ...a, [idx]: false }))}
+                            className="text-xs text-slate-400 hover:text-slate-600 underline"
+                          >
+                            Ignorer
+                          </button>
+                        </div>
+                      )}
+                      {!analysing[idx] && (
+                        <FileAnalysisResult
+                          result={analyses[idx] ?? null}
+                          loading={false}
+                        />
+                      )}
                     </div>
                   </div>
                 )

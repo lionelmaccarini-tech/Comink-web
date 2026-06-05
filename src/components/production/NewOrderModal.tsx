@@ -404,6 +404,30 @@ export default function NewOrderModal({ onClose, onCreated }: Props) {
     }))
   }
 
+  // ── Lecture dimensions depuis PDF ────────────────────────────────────────────
+
+  async function readPdfDimensions(file: File): Promise<{ w: number; h: number } | null> {
+    try {
+      const buffer = await file.arrayBuffer()
+      const text = new TextDecoder('latin1').decode(new Uint8Array(buffer))
+      const PT_TO_CM = 0.0352778
+      const re = /\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g
+      let m: RegExpExecArray | null
+      const sizes: Array<{ w: number; h: number }> = []
+      while ((m = re.exec(text)) !== null) {
+        const wPt = Math.abs(parseFloat(m[3]) - parseFloat(m[1]))
+        const hPt = Math.abs(parseFloat(m[4]) - parseFloat(m[2]))
+        sizes.push({
+          w: Math.round(wPt * PT_TO_CM * 10) / 10,
+          h: Math.round(hPt * PT_TO_CM * 10) / 10,
+        })
+      }
+      return sizes[0] ?? null
+    } catch {
+      return null
+    }
+  }
+
   // ── File upload + analysis (non-bloquant) ────────────────────────────────────
 
   const handleUpload = useCallback((lineId: string, file: File) => {
@@ -412,6 +436,15 @@ export default function NewOrderModal({ onClose, onCreated }: Props) {
 
     const doUpload = async () => {
       try {
+        // Lire dimensions PDF avant l'upload
+        const isPdf = file.name.toLowerCase().endsWith('.pdf')
+        if (isPdf) {
+          const dims = await readPdfDimensions(file)
+          if (dims) {
+            updateLine(lineId, { width_cm: dims.w, height_cm: dims.h })
+          }
+        }
+
         const fd = new FormData()
         fd.append('file', file)
         fd.append('itemId', `prod-${lineId}`)
@@ -428,9 +461,12 @@ export default function NewOrderModal({ onClose, onCreated }: Props) {
           const dims = line?.width_cm && line?.height_cm
             ? `${line.width_cm} × ${line.height_cm} cm` : undefined
 
+          const ctrl = new AbortController()
+          setTimeout(() => ctrl.abort(), 30_000) // 30s timeout
           fetch('/api/crm/analyze-file', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: ctrl.signal,
             body: JSON.stringify({
               file_url: data.url,
               file_name: data.name,

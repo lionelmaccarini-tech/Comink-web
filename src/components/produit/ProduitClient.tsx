@@ -849,9 +849,20 @@ export default function ProduitClient({ product }: Props) {
               <div>
                 <label className="text-xs font-medium text-slate-500 block mb-1">Quantité</label>
                 <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
-                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-2 text-slate-600 hover:bg-slate-50 text-lg font-bold">−</button>
-                  <span className="px-4 py-2 text-sm font-bold border-x border-slate-200 min-w-[3rem] text-center">{quantity}</span>
-                  <button onClick={() => setQuantity(q => q + 1)} className="px-3 py-2 text-slate-600 hover:bg-slate-50 text-lg font-bold">+</button>
+                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-2 text-slate-600 hover:bg-slate-50 text-lg font-bold leading-none">−</button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={e => {
+                      const v = parseInt(e.target.value)
+                      if (!isNaN(v) && v >= 1) setQuantity(v)
+                      else if (e.target.value === '') setQuantity(1)
+                    }}
+                    onBlur={e => { if (!e.target.value || parseInt(e.target.value) < 1) setQuantity(1) }}
+                    className="w-14 py-2 text-sm font-bold border-x border-slate-200 text-center focus:outline-none focus:bg-blue-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                  <button onClick={() => setQuantity(q => q + 1)} className="px-3 py-2 text-slate-600 hover:bg-slate-50 text-lg font-bold leading-none">+</button>
                 </div>
               </div>
               {unitPrice > 0 && (

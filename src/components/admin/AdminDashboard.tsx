@@ -148,19 +148,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Top bar */}
-      <div className="bg-sky-950 text-white px-6 py-4 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <img src="https://media.base44.com/images/public/69b6df678c8f8fabdf29d048/3a7588cd1_logo_comink_png_f6b84109-9ae2-455d-a799-bce0af0abe08.png" alt="Comink" className="h-8 w-auto" />
-          <div className="w-px h-6 bg-sky-800" />
-          <span className="text-sm font-bold text-sky-200">Administration</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-sky-300">{userEmail}</span>
-          <a href="/" className="text-xs text-sky-300 hover:text-white transition-colors">← Retour au site</a>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navigation tabs */}
         <div className="flex flex-wrap gap-1 mb-6 bg-white border border-slate-200 rounded-xl p-1 w-fit shadow-sm">

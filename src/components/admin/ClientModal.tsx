@@ -117,10 +117,7 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
         ...form,
         price_list_id: form.price_list_id || null,
         discount_percent: Number(form.discount_percent) || 0,
-        payment_methods_override: paymentOverride,
-        payment_deadline_days: deadlineDays,
         billing_end_of_month: billingEndOfMonth,
-        delivery_methods_override: deliveryOverride,
       }
       const method = client?.id ? 'PUT' : 'POST'
       const res = await fetch('/api/admin/clients', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })

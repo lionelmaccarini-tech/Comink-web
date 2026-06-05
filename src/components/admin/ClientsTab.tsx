@@ -6,31 +6,47 @@ import { cn } from '@/lib/utils'
 import ClientModal from './ClientModal'
 
 export default function ClientsTab() {
-  const [clients, setClients] = useState<any[]>([])
+  const [clients, setClients]       = useState<any[]>([])
   const [priceLists, setPriceLists] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [loading, setLoading]       = useState(true)
+  const [search, setSearch]         = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
+  const [page, setPage]             = useState(1)
+  const [total, setTotal]           = useState(0)
+  const [expanded, setExpanded]     = useState<string | null>(null)
+  const [modalOpen, setModalOpen]   = useState(false)
   const [editingClient, setEditingClient] = useState<any>(null)
+  const LIMIT = 50
 
-  async function load() {
+  async function load(p = page, s = search) {
     setLoading(true)
     try {
+      const params = new URLSearchParams({ page: String(p), ...(s ? { search: s } : {}) })
       const [cRes, plRes] = await Promise.all([
-        fetch('/api/admin/clients'),
+        fetch(`/api/admin/clients?${params}`),
         fetch('/api/admin/price-lists').catch(() => ({ json: () => [] })),
       ])
       const [cData, plData] = await Promise.all([cRes.json(), (plRes as any).json()])
-      setClients(Array.isArray(cData) ? cData : [])
+      setClients(Array.isArray(cData) ? cData : (cData?.data ?? []))
+      setTotal(cData?.total ?? (Array.isArray(cData) ? cData.length : 0))
       setPriceLists(Array.isArray(plData) ? plData : [])
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(1, '') }, [])
+
+  // Recherche avec debounce
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+      load(1, searchInput)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
 
   function openCreate() { setEditingClient(null); setModalOpen(true) }
   function openEdit(c: any) { setEditingClient(c); setModalOpen(true) }
@@ -49,19 +65,20 @@ export default function ClientsTab() {
     setClients(prev => prev.filter(c => c.id !== id))
   }
 
+  // Filtrage local sur la page courante
   const filtered = clients.filter(c => {
     if (filterActive === 'active' && !c.is_active) return false
     if (filterActive === 'inactive' && c.is_active) return false
-    if (search && !c.name?.toLowerCase().includes(search.toLowerCase()) && !c.email?.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
   const stats = {
-    total: clients.length,
+    total,
     active: clients.filter(c => c.is_active).length,
-    totalMembers: clients.reduce((acc, c) => acc + (c.members?.length || 0), 0),
+    totalMembers: 0,
     withPriceList: clients.filter(c => c.price_list_id).length,
   }
+  const totalPages = Math.ceil(total / LIMIT)
 
   return (
     <div className="space-y-5">
@@ -85,7 +102,7 @@ export default function ClientsTab() {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Rechercher un client…" value={search} onChange={e => setSearch(e.target.value)} />
+            placeholder="Rechercher un client…" value={searchInput} onChange={e => setSearchInput(e.target.value)} />
         </div>
         <select value={filterActive} onChange={e => setFilterActive(e.target.value as any)}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white">
@@ -93,7 +110,7 @@ export default function ClientsTab() {
           <option value="active">Actifs</option>
           <option value="inactive">Inactifs</option>
         </select>
-        <button onClick={load} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+        <button onClick={() => load(page, search)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
           <RefreshCw className={cn('w-4 h-4 text-slate-400', loading && 'animate-spin')} />
         </button>
         <button onClick={openCreate}
@@ -200,7 +217,23 @@ export default function ClientsTab() {
           </div>
         )}
       </div>
-      <p className="text-xs text-slate-400 text-right">{filtered.length} client{filtered.length > 1 ? 's' : ''}</p>
+      {/* Pagination + total */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-400">{total} client{total > 1 ? 's' : ''} au total</p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button disabled={page <= 1} onClick={() => { const np = page - 1; setPage(np); load(np, search) }}
+              className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-colors">
+              ← Précédent
+            </button>
+            <span className="text-xs text-slate-500">Page {page} / {totalPages}</span>
+            <button disabled={page >= totalPages} onClick={() => { const np = page + 1; setPage(np); load(np, search) }}
+              className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-colors">
+              Suivant →
+            </button>
+          </div>
+        )}
+      </div>
 
       {modalOpen && (
         <ClientModal
