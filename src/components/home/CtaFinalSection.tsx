@@ -90,7 +90,7 @@ export default function CtaFinalSection() {
           transition={{ duration: 0.7, delay: 0.2 }}
         >
           <MagneticButton
-            href="/commande"
+            href="/commande-rapide"
             className="group relative flex items-center gap-2.5 bg-blue-500 hover:bg-blue-400 text-white font-black px-9 py-4 rounded-2xl transition-colors shadow-xl shadow-blue-900/40 text-sm overflow-hidden cursor-pointer"
           >
             <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-[-20deg]" />

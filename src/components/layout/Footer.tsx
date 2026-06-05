@@ -15,7 +15,7 @@ const productLinks = [
 ]
 
 const serviceLinks = [
-  { label: 'Commande rapide', href: '/commande' },
+  { label: 'Commande rapide', href: '/commande-rapide' },
   { label: 'Demander un devis', href: '/devis' },
   { label: 'Suivi de commande', href: '/compte' },
   { label: 'Blog', href: '/blog' },
