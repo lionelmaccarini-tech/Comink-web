@@ -85,6 +85,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<any>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function loadProducts() {
@@ -122,34 +123,34 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   }
 
   async function duplicateProduct(p: any) {
-    // Whitelist explicite : uniquement les colonnes connues de la table products
+    setDuplicatingId(p.id)
     const copy = {
-      name:                     `${p.name} (copie)`,
-      description:              p.description ?? null,
-      category:                 p.category,
-      product_type:             p.product_type,
-      image_url:                p.image_url ?? null,
-      images:                   p.images ?? [],
-      price_per_m2:             p.price_per_m2 ?? null,
-      standard_sizes:           p.standard_sizes ?? [],
-      min_width_cm:             p.min_width_cm ?? null,
-      max_width_cm:             p.max_width_cm ?? null,
-      min_height_cm:            p.min_height_cm ?? null,
-      max_height_cm:            p.max_height_cm ?? null,
-      available:                false,
-      finitions:                p.finitions ?? [],
-      delai_options:            p.delai_options ?? [],
-      sides_finitions:          p.sides_finitions ?? null,
-      certificates:             p.certificates ?? [],
+      name:                      `${p.name} (copie)`,
+      description:               p.description ?? null,
+      category:                  p.category,
+      product_type:              p.product_type,
+      image_url:                 p.image_url ?? null,
+      images:                    p.images ?? [],
+      price_per_m2:              p.price_per_m2 ?? null,
+      standard_sizes:            p.standard_sizes ?? [],
+      min_width_cm:              p.min_width_cm ?? null,
+      max_width_cm:              p.max_width_cm ?? null,
+      min_height_cm:             p.min_height_cm ?? null,
+      max_height_cm:             p.max_height_cm ?? null,
+      available:                 false,
+      finitions:                 p.finitions ?? [],
+      delai_options:             p.delai_options ?? [],
+      sides_finitions:           p.sides_finitions ?? null,
+      certificates:              p.certificates ?? [],
       restricted_to_price_lists: p.restricted_to_price_lists ?? [],
-      vat_rate:                 p.vat_rate ?? 21,
-      production_code:          p.production_code ?? null,
-      free_shipping:            p.free_shipping ?? false,
-      free_shipping_threshold:  p.free_shipping_threshold ?? null,
-      seo_title:                p.seo_title ?? null,
-      seo_description:          p.seo_description ?? null,
-      jde_enabled:              p.jde_enabled ?? false,
-      visibility_group:         p.visibility_group ?? null,
+      vat_rate:                  p.vat_rate ?? 21,
+      production_code:           p.production_code ?? null,
+      free_shipping:             p.free_shipping ?? false,
+      free_shipping_threshold:   p.free_shipping_threshold ?? null,
+      seo_title:                 p.seo_title ?? null,
+      seo_description:           p.seo_description ?? null,
+      jde_enabled:               p.jde_enabled ?? false,
+      visibility_group:          p.visibility_group ?? null,
     }
     try {
       const res = await fetch('/api/admin/products', {
@@ -157,12 +158,14 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(copy),
       })
-      const newProduct = await res.json()
-      if (newProduct.error) throw new Error(newProduct.error)
-      setProducts(prev => [newProduct, ...prev])
-      openEdit(newProduct)
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`)
+      setProducts(prev => [json, ...prev])
+      openEdit(json)
     } catch (e: any) {
       alert(`Erreur duplication : ${e.message}`)
+    } finally {
+      setDuplicatingId(null)
     }
   }
 
@@ -352,8 +355,8 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                             <a href={`/produit/${p.id}`} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors" title="Voir sur le site">
                               <Eye className="w-4 h-4" />
                             </a>
-                            <button onClick={() => duplicateProduct(p)} className="p-1.5 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors" title="Dupliquer ce produit">
-                              <Copy className="w-4 h-4" />
+                            <button onClick={() => duplicateProduct(p)} disabled={duplicatingId === p.id} className="p-1.5 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50" title="Dupliquer ce produit">
+                              {duplicatingId === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
                             </button>
                             <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors" title="Modifier">
                               <Edit2 className="w-4 h-4" />
