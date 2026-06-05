@@ -376,8 +376,14 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
       let totalPages = 0
 
       for (const file of pdfs) {
-        const pages = await parsePdfPageSizes(file)
-        if (pages.length === 0) continue
+        const allPages = await parsePdfPageSizes(file)
+        if (allPages.length === 0) continue
+        // Limiter à 20 pages par fichier pour éviter de créer des centaines de lignes
+        const MAX_PAGES = 20
+        const pages = allPages.slice(0, MAX_PAGES)
+        if (allPages.length > MAX_PAGES) {
+          setImportInfo(`⚠ Fichier ${file.name} : ${allPages.length} pages détectées — seules les ${MAX_PAGES} premières sont importées.`)
+        }
         totalPages += pages.length
         const defaultProduct = surMesureProducts[0]
         const defaultConfig = defaultProduct ? initRowConfig(defaultProduct) : { selectedFinitions: {}, selectedDelai: null, selectedSides: {} }
@@ -413,14 +419,20 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
       const fc = pdfs.length
       setImportInfo(`${totalPages} page${totalPages > 1 ? 's' : ''} importée${totalPages > 1 ? 's' : ''} depuis ${fc} fichier${fc > 1 ? 's' : ''}`)
 
-      // Déclencher upload+analyse pour chaque nouveau row qui a un fileObj
-      setTimeout(() => {
-        allNewRows.forEach(row => {
-          if (row.fileObj) {
-            uploadAndAnalyzeRow(row.id, row.fileObj, row)
-          }
-        })
-      }, 0)
+      // Marquer les rows avec fichier en 'uploading' immédiatement (rendu visible)
+      // puis déclencher l'upload en arrière-plan
+      const rowsWithFile = allNewRows.filter(r => r.fileObj)
+      if (rowsWithFile.length > 0) {
+        setRows(current => current.map(r => {
+          const hasFile = rowsWithFile.find(rf => rf.id === r.id)
+          return hasFile ? { ...r, fileState: 'uploading' as const } : r
+        }))
+        setTimeout(() => {
+          rowsWithFile.forEach(row => {
+            uploadAndAnalyzeRow(row.id, row.fileObj!, row)
+          })
+        }, 50)
+      }
     } catch {
       setImportError('Erreur lors de la lecture des PDFs.')
     } finally {
@@ -921,7 +933,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                   {row.expanded && <RowConfigPanel row={row} />}
 
                   {/* Zone fichier — upload + analyse */}
-                  {row.fileState !== 'none' && (
+                  {(row.fileState !== 'none' || row.fileObj || row.fileName) && (
                     <div className="border-t border-slate-100 px-4 pt-3 pb-3 mt-0">
 
                       {/* État upload */}

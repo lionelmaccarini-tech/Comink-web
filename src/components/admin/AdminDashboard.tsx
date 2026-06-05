@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard } from 'lucide-react'
+import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ProductModal from './ProductModal'
 import CollaborateursTab from './CollaborateursTab'
@@ -119,6 +119,27 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     })
     const updated = await res.json()
     setProducts(prev => prev.map(x => x.id === p.id ? { ...x, available: updated.available } : x))
+  }
+
+  async function duplicateProduct(p: any) {
+    const { id, created_at, updated_at, slug, ...rest } = p
+    const copy = {
+      ...rest,
+      name: `${p.name} (copie)`,
+      available: false, // désactivé par défaut pour révision avant publication
+    }
+    const res = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(copy),
+    })
+    const newProduct = await res.json()
+    if (!newProduct.error) {
+      setProducts(prev => [newProduct, ...prev])
+      // Ouvrir directement l'édition du produit copié
+      setEditingProduct(newProduct)
+      setModalOpen(true)
+    }
   }
 
   async function deleteProduct(id: string) {
@@ -307,6 +328,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
                             <a href={`/produit/${p.id}`} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors" title="Voir sur le site">
                               <Eye className="w-4 h-4" />
                             </a>
+                            <button onClick={() => duplicateProduct(p)} className="p-1.5 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors" title="Dupliquer ce produit">
+                              <Copy className="w-4 h-4" />
+                            </button>
                             <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors" title="Modifier">
                               <Edit2 className="w-4 h-4" />
                             </button>
