@@ -122,11 +122,34 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   }
 
   async function duplicateProduct(p: any) {
-    const { id, created_at, updated_at, slug, ...rest } = p
+    // Whitelist explicite : uniquement les colonnes connues de la table products
     const copy = {
-      ...rest,
-      name: `${p.name} (copie)`,
-      available: false,
+      name:                     `${p.name} (copie)`,
+      description:              p.description ?? null,
+      category:                 p.category,
+      product_type:             p.product_type,
+      image_url:                p.image_url ?? null,
+      images:                   p.images ?? [],
+      price_per_m2:             p.price_per_m2 ?? null,
+      standard_sizes:           p.standard_sizes ?? [],
+      min_width_cm:             p.min_width_cm ?? null,
+      max_width_cm:             p.max_width_cm ?? null,
+      min_height_cm:            p.min_height_cm ?? null,
+      max_height_cm:            p.max_height_cm ?? null,
+      available:                false,
+      finitions:                p.finitions ?? [],
+      delai_options:            p.delai_options ?? [],
+      sides_finitions:          p.sides_finitions ?? null,
+      certificates:             p.certificates ?? [],
+      restricted_to_price_lists: p.restricted_to_price_lists ?? [],
+      vat_rate:                 p.vat_rate ?? 21,
+      production_code:          p.production_code ?? null,
+      free_shipping:            p.free_shipping ?? false,
+      free_shipping_threshold:  p.free_shipping_threshold ?? null,
+      seo_title:                p.seo_title ?? null,
+      seo_description:          p.seo_description ?? null,
+      jde_enabled:              p.jde_enabled ?? false,
+      visibility_group:         p.visibility_group ?? null,
     }
     try {
       const res = await fetch('/api/admin/products', {
@@ -137,10 +160,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       const newProduct = await res.json()
       if (newProduct.error) throw new Error(newProduct.error)
       setProducts(prev => [newProduct, ...prev])
-      setEditingProduct(newProduct)
-      setModalOpen(true)
+      openEdit(newProduct)
     } catch (e: any) {
-      alert(`Erreur lors de la duplication : ${e.message}`)
+      alert(`Erreur duplication : ${e.message}`)
     }
   }
 
