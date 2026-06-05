@@ -47,11 +47,13 @@ export async function POST(req: NextRequest) {
   let payload = { ...body, slug: `${slug}-${Date.now()}` }
   let { data, error } = await supabase.from('products').insert(payload).select().single()
 
-  // Retry without unknown columns (migration not yet applied)
-  if (error?.message?.includes('column') && error.message.includes('does not exist')) {
+  // Retry en boucle : retire les colonnes inconnues une à une jusqu'à succès (max 10 tentatives)
+  let attempts = 0
+  while (error?.message?.includes('does not exist') && attempts < 10) {
     payload = stripUnknownColumn(payload, error.message)
     const retry = await supabase.from('products').insert(payload).select().single()
     data = retry.data; error = retry.error
+    attempts++
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

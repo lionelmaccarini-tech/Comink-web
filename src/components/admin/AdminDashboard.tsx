@@ -126,19 +126,21 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
     const copy = {
       ...rest,
       name: `${p.name} (copie)`,
-      available: false, // désactivé par défaut pour révision avant publication
+      available: false,
     }
-    const res = await fetch('/api/admin/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(copy),
-    })
-    const newProduct = await res.json()
-    if (!newProduct.error) {
+    try {
+      const res = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(copy),
+      })
+      const newProduct = await res.json()
+      if (newProduct.error) throw new Error(newProduct.error)
       setProducts(prev => [newProduct, ...prev])
-      // Ouvrir directement l'édition du produit copié
       setEditingProduct(newProduct)
       setModalOpen(true)
+    } catch (e: any) {
+      alert(`Erreur lors de la duplication : ${e.message}`)
     }
   }
 
