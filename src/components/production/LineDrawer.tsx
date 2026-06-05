@@ -29,6 +29,14 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
     setAnalysisError('')
   }, [line.id, line.notes])
 
+  // Auto-analyser au premier ouverture si fichier présent et pas encore analysé
+  useEffect(() => {
+    if (line.file_url && !line.file_analysis && !analysing) {
+      handleReanalyze()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [line.id])
+
   async function handleReanalyze() {
     setAnalysing(true)
     setAnalysisError('')
@@ -129,6 +137,36 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
               </div>
             )}
           </div>
+
+          {/* ── Badge conformité dimensions ── */}
+          {line.file_url && line.file_analysis && (line.width_cm || line.height_cm) && (() => {
+            const dimCheck = (line.file_analysis as any)?.checks?.find((c: any) => c.id === 'dimensions')
+            const colorCheck = (line.file_analysis as any)?.checks?.find((c: any) => c.id === 'color_mode')
+            if (!dimCheck && !colorCheck) return null
+            return (
+              <div className="flex flex-wrap gap-2">
+                {dimCheck && (
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                    dimCheck.status === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : dimCheck.status === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {dimCheck.status === 'ok' ? '✓' : dimCheck.status === 'warning' ? '⚠' : '✗'}
+                    {' '}Format {line.width_cm} × {line.height_cm} cm
+                    {dimCheck.status !== 'ok' && <span className="font-normal ml-1">— {dimCheck.message}</span>}
+                  </div>
+                )}
+                {colorCheck && (
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                    colorCheck.status === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {colorCheck.status === 'ok' ? '✓ CMYK' : '✗ RGB — doit être converti'}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* ── Analyse du fichier ── */}
           {line.file_url && (

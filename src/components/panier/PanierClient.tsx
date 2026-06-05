@@ -108,6 +108,53 @@ async function generatePDFPageThumb(file: File, pageNum: number): Promise<string
   }
 }
 
+// ── Détecte le mode colorimétrique en scannant les bytes bruts du PDF ────────
+async function scanCmykHint(file: File): Promise<'cmyk' | 'rgb' | 'unknown'> {
+  try {
+    const chunk = await file.slice(0, 262144).arrayBuffer() // 256 KB suffisent
+    const text = new TextDecoder('latin1').decode(chunk)
+    if (/\/DeviceCMYK|DeviceCMYK/i.test(text)) return 'cmyk'
+    if (/\/DeviceRGB|\/CalRGB|sRGB/i.test(text)) return 'rgb'
+    return 'unknown'
+  } catch { return 'unknown' }
+}
+
+// ── Génère un aperçu JPEG haute qualité page 1 pour analyse IA ───────────────
+async function generatePdfAnalysisPreview(file: File): Promise<string | null> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    const page = await pdf.getPage(1)
+    const viewport = page.getViewport({ scale: 1 })
+    const MAX_PX = 1500
+    const scale = Math.min(MAX_PX / viewport.width, MAX_PX / viewport.height, 3.0)
+    const scaled = page.getViewport({ scale })
+    const canvas = document.createElement('canvas')
+    canvas.width  = Math.round(scaled.width)
+    canvas.height = Math.round(scaled.height)
+    const ctx = canvas.getContext('2d')!
+    await (page.render as any)({ canvasContext: ctx, viewport: scaled }).promise
+    return canvas.toDataURL('image/jpeg', 0.85)
+  } catch { return null }
+}
+
+// ── Upload un preview dataURL vers R2 avec clé prédictible ───────────────────
+async function uploadPreviewToR2(dataUrl: string, mainKey: string): Promise<string | null> {
+  try {
+    const blob = await fetch(dataUrl).then(r => r.blob())
+    const presignRes = await fetch('/api/r2-presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileName: 'preview.jpg', contentType: 'image/jpeg', mainKey }),
+    })
+    const { presignedUrl, publicUrl } = await presignRes.json()
+    await fetch(presignedUrl, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: blob })
+    return publicUrl
+  } catch { return null }
+}
+
 // Génère une miniature base64 à partir d'un fichier image (80×80 px)
 async function generateImageThumb(file: File): Promise<string | null> {
   if (!file.type.startsWith('image/')) return null
@@ -236,15 +283,29 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
       setFiles(updatedWithFile)
       syncToCart(updatedWithFile)
 
-      // ── Analyse Claude en arrière-plan (CMYK) ──────────────────────────────
+      // ── Analyse Claude en arrière-plan : preview + CMYK hint ─────────────────
       setUploadPhaseMap(m => ({ ...m, [slotId]: 'analyze' }))
       const dims = item.width_cm && item.height_cm ? `${item.width_cm} × ${item.height_cm} cm` : undefined
+      const isPdf = file.name.toLowerCase().endsWith('.pdf')
+      // Pour les PDFs : génère preview page 1 + scan CMYK bytes en parallèle
+      const [cmykHint, previewDataUrl] = await Promise.all([
+        isPdf ? scanCmykHint(file) : Promise.resolve('unknown' as const),
+        isPdf ? generatePdfAnalysisPreview(file) : Promise.resolve(null),
+      ])
+      // Upload le preview si disponible (clé prédictible = mainKey + '.preview.jpg')
+      const analysisUrl = previewDataUrl ? await uploadPreviewToR2(previewDataUrl, presignData.key) : null
       const ctrl = new AbortController()
-      setTimeout(() => ctrl.abort(), 30_000)
+      setTimeout(() => ctrl.abort(), 60_000)
       try {
         const r = await fetch('/api/crm/analyze-file', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
-          body: JSON.stringify({ file_url: uploadData.url, file_name: file.name, dimensions: dims }),
+          body: JSON.stringify({
+            file_url:     uploadData.url,
+            analysis_url: analysisUrl,   // petit JPEG page 1 si disponible
+            cmyk_hint:    cmykHint,       // CMYK détecté depuis bytes PDF
+            file_name:    file.name,
+            dimensions:   dims,
+          }),
         })
         const analysis = await r.json()
         if (!analysis.error) setSlotAnalysis(prev => ({ ...prev, [slotId]: analysis }))
@@ -550,10 +611,19 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
       setUploadPhase('analyze')
       setUploadProgress(100)
       const dims = item.width_cm && item.height_cm ? `${item.width_cm} × ${item.height_cm} cm` : undefined
+      const isPdf = file.name.toLowerCase().endsWith('.pdf')
       const isLargeFile = file.size > 10 * 1024 * 1024
+
+      // Preview + CMYK hint pour tous les PDFs (obligatoire pour les gros fichiers)
+      const [cmykHint, previewDataUrl] = await Promise.all([
+        isPdf ? scanCmykHint(file) : Promise.resolve('unknown' as const),
+        isPdf ? generatePdfAnalysisPreview(file) : Promise.resolve(null),
+      ])
+      const analysisUrl = previewDataUrl ? await uploadPreviewToR2(previewDataUrl, presignData.key) : null
+
       const [valResult, claudeResult] = await Promise.allSettled([
         isLargeFile
-          ? Promise.resolve({ ok: true, dimensionMatch: true, colorspace: "unknown", dimensions: { width_mm: 0, height_mm: 0 }, pages: 1, dpi: null, dpi_status: "unknown" as const, width_px: 0, height_px: 0, warnings: [], suggestedScale: null })
+          ? Promise.resolve({ ok: true, dimensionMatch: true, colorspace: cmykHint === 'cmyk' ? 'cmyk' : 'unknown', dimensions: { width_mm: 0, height_mm: 0 }, pages: 1, dpi: null, dpi_status: "unknown" as const, width_px: 0, height_px: 0, warnings: [], suggestedScale: null })
           : (async () => {
               const fd2 = new FormData()
               fd2.append('file', file)
@@ -564,12 +634,18 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
             })(),
         (async () => {
           const ctrl = new AbortController()
-          setTimeout(() => ctrl.abort(), 30_000)
+          setTimeout(() => ctrl.abort(), 60_000)
           const r = await fetch('/api/crm/analyze-file', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             signal: ctrl.signal,
-            body: JSON.stringify({ file_url: uploadData.url, file_name: file.name, dimensions: dims }),
+            body: JSON.stringify({
+              file_url:     uploadData.url,
+              analysis_url: analysisUrl,
+              cmyk_hint:    cmykHint,
+              file_name:    file.name,
+              dimensions:   dims,
+            }),
           })
           return r.json()
         })(),

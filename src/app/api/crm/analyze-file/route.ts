@@ -64,15 +64,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { file_url, file_name, product_name, dimensions, product_bleed, product_diecut } = await req.json()
+    const { file_url, file_name, product_name, dimensions, product_bleed, product_diecut,
+            analysis_url, cmyk_hint } = await req.json()
 
     if (!file_url) {
       return NextResponse.json({ error: 'file_url requis' }, { status: 400 })
     }
 
-    const ext = (file_name || file_url).split('.').pop()?.toLowerCase() || ''
-    const isPDF = ext === 'pdf'
-    const isImage = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp'].includes(ext)
+    // Si un aperçu page-1 est disponible (gros fichiers), on l'utilise pour l'analyse Claude
+    const effectiveUrl = analysis_url || file_url
+    const ext = (file_name || effectiveUrl).split('.').pop()?.toLowerCase().replace(/\?.*$/, '') || ''
+    // Quand on utilise un preview .jpg pour analyser un PDF original
+    const isPDF = !analysis_url && ext === 'pdf'
+    const isImage = analysis_url ? true : ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp'].includes(ext)
 
     if (!isPDF && !isImage) {
       return NextResponse.json({
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey })
 
     // ── Vérifier la taille AVANT de charger en mémoire ───────────────────────
-    const headRes = await fetch(file_url, { method: 'HEAD' })
+    const headRes = await fetch(effectiveUrl, { method: 'HEAD' })
     const contentLength = headRes.headers.get('content-length')
     const MAX_BYTES = isPDF ? 32 * 1024 * 1024 : 20 * 1024 * 1024
     if (contentLength && Number(contentLength) > MAX_BYTES) {
@@ -113,7 +117,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Fetch file and convert to base64 ──────────────────────────────────────
-    const fetchRes = await fetch(file_url)
+    const fetchRes = await fetch(effectiveUrl)
     if (!fetchRes.ok) throw new Error(`Impossible de télécharger le fichier: ${fetchRes.status}`)
 
     const buffer = await fetchRes.arrayBuffer()
@@ -136,15 +140,23 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const mediaType = isPDF
+    const mediaType = (isPDF && !analysis_url)
       ? 'application/pdf'
       : ext === 'png' ? 'image/png'
       : ext === 'tiff' || ext === 'tif' ? 'image/tiff'
       : 'image/jpeg'
 
     // ── Build context for Claude ──────────────────────────────────────────────
+    const cmykContext = cmyk_hint === 'cmyk'
+      ? 'IMPORTANT : détection bytes PDF confirme des objets CMYK/DeviceCMYK dans le fichier. Le mode colorimétrique est CMYK.'
+      : cmyk_hint === 'rgb'
+      ? 'IMPORTANT : détection bytes PDF confirme des objets RGB/DeviceRGB. Le mode colorimétrique est probablement RGB.'
+      : null
+
     const contextParts = [
       `Nom du fichier : ${file_name || 'inconnu'}`,
+      analysis_url ? `NOTE : tu analyses un aperçu JPEG de la page 1 du fichier original (le PDF complet est trop volumineux pour transfert direct).` : null,
+      cmykContext,
       product_name ? `Produit commandé : ${product_name}` : null,
       dimensions ? `Dimensions commandées : ${dimensions} — le fichier DOIT correspondre (+ fond perdu inclus)` : null,
       product_bleed ? `Fond perdu requis : ${product_bleed} sur chaque côté` : null,

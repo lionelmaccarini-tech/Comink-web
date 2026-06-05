@@ -25,6 +25,14 @@ export async function POST(
       return NextResponse.json({ error: 'Aucun fichier sur cette ligne' }, { status: 400 })
     }
 
+    // Vérifier si un aperçu preview existe (convention : file_url + '.preview.jpg')
+    const previewUrl = `${line.file_url}.preview.jpg`
+    let analysisUrl: string | null = null
+    try {
+      const headRes = await fetch(previewUrl, { method: 'HEAD' })
+      if (headRes.ok) analysisUrl = previewUrl
+    } catch { /* preview inexistant — utilise le fichier complet */ }
+
     // Call the analyze-file endpoint internally
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     const analyzeRes = await fetch(`${baseUrl}/api/crm/analyze-file`, {
@@ -32,6 +40,7 @@ export async function POST(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         file_url:     line.file_url,
+        analysis_url: analysisUrl,   // petit JPEG preview si disponible (gros fichiers)
         file_name:    line.file_name,
         product_name: line.product_name,
         dimensions:   line.width_cm && line.height_cm
