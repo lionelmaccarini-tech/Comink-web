@@ -142,6 +142,9 @@ const genId = () => Math.random().toString(36).slice(2, 11)
 function MultiFileZone({ item, onValidated }: FileZoneProps) {
   const addInputRef = useRef<HTMLInputElement>(null)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [uploadProgressMap, setUploadProgressMap] = useState<Record<string, number>>({})
+  const [uploadPhaseMap, setUploadPhaseMap] = useState<Record<string, 'upload'|'analyze'>>({})
+  const [slotAnalysis, setSlotAnalysis] = useState<Record<string, any>>({})
   const [slotResults, setSlotResults] = useState<Record<string, ValidationResult>>({})
   const [slotScales, setSlotScales] = useState<Record<string, boolean>>({})
 
@@ -193,71 +196,59 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
     const withPlaceholder = [...files, placeholder]
     setFiles(withPlaceholder)
     setUploadingId(slotId)
+    setUploadPhaseMap(m => ({ ...m, [slotId]: 'upload' }))
+    setUploadProgressMap(m => ({ ...m, [slotId]: 0 }))
     try {
       const thumb = await generateImageThumb(file)
-      // Upload R2
-      const fd1 = new FormData()
-      fd1.append('file', file)
-      fd1.append('itemId', `${item.id}_${slotId}`)
-      const uploadRes  = await fetch('/api/r2-upload', { method: 'POST', body: fd1 })
-      const uploadData = await uploadRes.json()
-      if (!uploadRes.ok || !uploadData.url) throw new Error(uploadData.error || 'Upload error')
-      // Validate
-      const fd2 = new FormData()
-      fd2.append('file', file)
-      if (item.width_cm)  fd2.append('width_cm',  String(item.width_cm))
-      if (item.height_cm) fd2.append('height_cm', String(item.height_cm))
-      const valRes  = await fetch('/api/validate-file', { method: 'POST', body: fd2 })
-      const valData: ValidationResult = await valRes.json()
-      const pages     = valData.pages ?? 1
-      const fileInfo  = {
-        width_mm:   valData.dimensions.width_mm,
-        height_mm:  valData.dimensions.height_mm,
-        colorspace: valData.colorspace,
-        pages:      valData.pages,
-        dpi:        valData.dpi,
-      }
 
-      if (pages > 1) {
-        // PDF multi-pages → une ligne par page, chaque page = 1 exemplaire
-        const pageEntries: CartFile[] = []
-        for (let p = 1; p <= pages; p++) {
-          const pageThumb = await generatePDFPageThumb(file, p)
-          const pid = genId()
-          setSlotResults(prev => ({ ...prev, [pid]: valData }))
-          pageEntries.push({
-            id:             pid,
-            file_url:       uploadData.url,
-            file_name:      file.name,
-            file_thumb:     pageThumb ?? undefined,
-            file_validated: valData.dimensionMatch,
-            file_info:      fileInfo,
-            copies:         1,
-            page_index:     p,
-            total_pages:    pages,
-          })
-        }
-        const updated = [
-          ...withPlaceholder.filter(f => f.id !== slotId),
-          ...pageEntries,
-        ]
-        setFiles(updated)
-        syncToCart(updated)
-      } else {
-        // Fichier 1 page (image ou PDF 1 page)
-        setSlotResults(prev => ({ ...prev, [slotId]: valData }))
-        const updated = withPlaceholder.map(f => f.id === slotId ? {
-          ...f,
-          copies:         Math.max(1, remaining),
-          file_url:       uploadData.url,
-          file_name:      file.name,
-          file_thumb:     thumb ?? undefined,
-          file_validated: valData.dimensionMatch,
-          file_info:      fileInfo,
-        } : f)
-        setFiles(updated)
-        syncToCart(updated)
-      }
+      // 1. Obtenir URL pré-signée (contourne la limite 4.5MB de Vercel)
+      const presignRes = await fetch('/api/r2-presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type || 'application/octet-stream', itemId: `${item.id}_${slotId}` }),
+      })
+      const presignData = await presignRes.json()
+      if (!presignRes.ok || !presignData.presignedUrl) throw new Error(presignData.error || 'Presign error')
+
+      // 2. Upload direct browser→R2 avec progression XHR (pas de limite Vercel)
+      const uploadData = await new Promise<{ url: string; name: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadProgressMap(m => ({ ...m, [slotId]: Math.round(e.loaded / e.total * 100) })) }
+        xhr.onload = () => { xhr.status === 200 ? resolve({ url: presignData.publicUrl, name: file.name }) : reject(new Error(`Upload R2 failed: ${xhr.status}`)) }
+        xhr.onerror = () => reject(new Error('Network error'))
+        xhr.open('PUT', presignData.presignedUrl)
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.send(file)
+      })
+      if (!uploadData.url) throw new Error('Upload error')
+
+      // ── Afficher le fichier IMMÉDIATEMENT après upload ──────────────────────
+      const fileInfo = { width_mm: 0, height_mm: 0, colorspace: 'unknown', pages: 1, dpi: null }
+      const updatedWithFile = withPlaceholder.map(f => f.id === slotId ? {
+        ...f,
+        copies:         Math.max(1, remaining),
+        file_url:       uploadData.url,
+        file_name:      file.name,
+        file_thumb:     thumb ?? undefined,
+        file_validated: true,
+        file_info:      fileInfo,
+      } : f)
+      setFiles(updatedWithFile)
+      syncToCart(updatedWithFile)
+
+      // ── Analyse Claude en arrière-plan (CMYK) ──────────────────────────────
+      setUploadPhaseMap(m => ({ ...m, [slotId]: 'analyze' }))
+      const dims = item.width_cm && item.height_cm ? `${item.width_cm} × ${item.height_cm} cm` : undefined
+      const ctrl = new AbortController()
+      setTimeout(() => ctrl.abort(), 30_000)
+      try {
+        const r = await fetch('/api/crm/analyze-file', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+          body: JSON.stringify({ file_url: uploadData.url, file_name: file.name, dimensions: dims }),
+        })
+        const analysis = await r.json()
+        if (!analysis.error) setSlotAnalysis(prev => ({ ...prev, [slotId]: analysis }))
+      } catch { /* timeout ou erreur silencieuse */ }
     } catch (err) {
       console.error(err)
       const updated = withPlaceholder.filter(f => f.id !== slotId)
@@ -344,7 +335,15 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                 {/* Nom + infos */}
                 <div className="flex-1 min-w-0">
                   {isUp ? (
-                    <p className="text-xs text-blue-600 font-medium">Analyse en cours…</p>
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-blue-600 font-medium">
+                        {uploadPhaseMap[f.id] === 'analyze' ? 'Analyse IA en cours…' : `Upload… ${uploadProgressMap[f.id] ?? 0}%`}
+                      </p>
+                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div className={`h-1.5 rounded-full transition-all duration-200 ${uploadPhaseMap[f.id] === 'analyze' ? 'bg-violet-500 w-full animate-pulse' : 'bg-blue-500'}`}
+                          style={{ width: uploadPhaseMap[f.id] === 'upload' ? `${uploadProgressMap[f.id] ?? 0}%` : '100%' }} />
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <p className="text-xs text-slate-700 font-medium truncate leading-tight">
@@ -363,6 +362,25 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                           </span>
                         )}
                       </div>
+                      {/* Analyse Claude CMYK */}
+                      {slotAnalysis[f.id] && (() => {
+                        const cmyk = slotAnalysis[f.id].checks?.find((c: any) => c.id === 'color_mode')
+                        if (!cmyk) return null
+                        return cmyk.status === 'error' ? (
+                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 mt-1">
+                            <span className="text-red-500 text-[10px] font-black">🚫 RGB</span>
+                            <span className="text-[10px] text-red-600 font-semibold">NON CONFORME</span>
+                          </div>
+                        ) : cmyk.status === 'ok' ? (
+                          <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 mt-1">
+                            <span className="text-emerald-600 text-[10px] font-bold">✓ CMJN conforme</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1">
+                            <span className="text-amber-600 text-[10px] font-semibold">⚠ {cmyk.message}</span>
+                          </div>
+                        )
+                      })()}
                     </>
                   )}
                 </div>
@@ -474,6 +492,9 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
 
 function SingleFileZone({ item, onValidated }: FileZoneProps) {
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadPhase, setUploadPhase] = useState<'upload' | 'analyze'>('upload')
+  const [claudeAnalysis, setClaudeAnalysis] = useState<any>(null)
   const [scaleAccepted, setScaleAccepted] = useState(item.file_scale !== undefined && item.file_scale !== 1)
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   // URL objet temporaire pour l'aperçu PDF (durée de vie = session)
@@ -503,36 +524,71 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
       // 1. Miniature image (pour images raster)
       const thumb = await generateImageThumb(file)
 
-      // 2. Upload to R2
-      const fd1 = new FormData()
-      fd1.append('file', file)
-      fd1.append('itemId', item.id)
-      const uploadRes = await fetch('/api/r2-upload', { method: 'POST', body: fd1 })
-      const uploadData = await uploadRes.json()
+      // 2. Upload direct browser→R2 (pas de limite Vercel via URL pré-signée)
+      setUploadPhase('upload')
+      setUploadProgress(0)
+      const presignRes = await fetch('/api/r2-presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, contentType: file.type || 'application/octet-stream', itemId: item.id }),
+      })
+      const presignData = await presignRes.json()
+      if (!presignRes.ok || !presignData.presignedUrl) throw new Error(presignData.error || 'Erreur presign')
+      const uploadData: { url: string; name: string } = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadProgress(Math.round(e.loaded / e.total * 100)) }
+        xhr.onload = () => { xhr.status === 200 ? resolve({ url: presignData.publicUrl, name: file.name }) : reject(new Error(`Upload R2 failed: ${xhr.status}`)) }
+        xhr.onerror = () => reject(new Error('Network error'))
+        xhr.open('PUT', presignData.presignedUrl)
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.send(file)
+      })
+      if (!uploadData.url) throw new Error('Erreur upload')
+      setUploadProgress(100)
 
-      if (!uploadRes.ok || !uploadData.url) {
-        throw new Error(uploadData.error || 'Erreur upload')
-      }
+      // 3. Analyse IA Claude (CMYK en priorité) + validate en parallèle
+      setUploadPhase('analyze')
+      setUploadProgress(100)
+      const dims = item.width_cm && item.height_cm ? `${item.width_cm} × ${item.height_cm} cm` : undefined
+      const isLargeFile = file.size > 10 * 1024 * 1024
+      const [valResult, claudeResult] = await Promise.allSettled([
+        isLargeFile
+          ? Promise.resolve({ ok: true, dimensionMatch: true, colorspace: "unknown", dimensions: { width_mm: 0, height_mm: 0 }, pages: 1, dpi: null, dpi_status: "unknown" as const, width_px: 0, height_px: 0, warnings: [], suggestedScale: null })
+          : (async () => {
+              const fd2 = new FormData()
+              fd2.append('file', file)
+              if (item.width_cm) fd2.append('width_cm', String(item.width_cm))
+              if (item.height_cm) fd2.append('height_cm', String(item.height_cm))
+              const r = await fetch('/api/validate-file', { method: 'POST', body: fd2 })
+              return r.json()
+            })(),
+        (async () => {
+          const ctrl = new AbortController()
+          setTimeout(() => ctrl.abort(), 30_000)
+          const r = await fetch('/api/crm/analyze-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: ctrl.signal,
+            body: JSON.stringify({ file_url: uploadData.url, file_name: file.name, dimensions: dims }),
+          })
+          return r.json()
+        })(),
+      ])
 
-      // 3. Validate
-      const fd2 = new FormData()
-      fd2.append('file', file)
-      if (item.width_cm) fd2.append('width_cm', String(item.width_cm))
-      if (item.height_cm) fd2.append('height_cm', String(item.height_cm))
-      const valRes = await fetch('/api/validate-file', { method: 'POST', body: fd2 })
-      const valData: ValidationResult = await valRes.json()
-
+      const valData: ValidationResult = valResult.status === 'fulfilled' ? valResult.value : {} as ValidationResult
+      const analysis = claudeResult.status === 'fulfilled' && !claudeResult.value?.error ? claudeResult.value : null
+      setClaudeAnalysis(analysis)
       setValidationResult(valData)
       setScaleAccepted(false)
 
       onValidated({
         file_url:       uploadData.url,
         file_name:      file.name,
-        file_thumb:     thumb ?? undefined,   // base64 miniature (images) ou undefined
+        file_thumb:     thumb ?? undefined,
         file_validated: valData.dimensionMatch,
         file_info: {
-          width_mm:   valData.dimensions.width_mm,
-          height_mm:  valData.dimensions.height_mm,
+          width_mm:   valData.dimensions?.width_mm,
+          height_mm:  valData.dimensions?.height_mm,
           colorspace: valData.colorspace,
           pages:      valData.pages,
           dpi:        valData.dpi,
@@ -543,6 +599,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
       console.error(err)
     } finally {
       setUploading(false)
+      setUploadProgress(0)
     }
   }, [item.id, item.width_cm, item.height_cm, onValidated])
 
@@ -592,9 +649,19 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
   return (
     <div className="mt-3">
       {uploading ? (
-        <div className="border-2 border-dashed border-blue-200 rounded-xl p-4 flex items-center gap-3 bg-blue-50">
-          <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
-          <span className="text-sm text-blue-600 font-medium">Analyse en cours…</span>
+        <div className="border-2 border-dashed border-blue-200 rounded-xl p-4 space-y-2.5 bg-blue-50">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" />
+            <span className="text-sm text-blue-600 font-medium">
+              {uploadPhase === 'upload' ? `Upload… ${uploadProgress}%` : 'Analyse IA en cours…'}
+            </span>
+          </div>
+          <div className="w-full bg-blue-100 rounded-full h-1.5 overflow-hidden">
+            <div
+              className={`h-1.5 rounded-full transition-all duration-200 ${uploadPhase === 'analyze' ? 'bg-violet-500 w-full animate-pulse' : 'bg-blue-500'}`}
+              style={{ width: uploadPhase === 'upload' ? `${uploadProgress}%` : '100%' }}
+            />
+          </div>
         </div>
       ) : hasFile ? (
         <div className="space-y-2">
@@ -720,6 +787,44 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
             <p className="text-[11px] text-orange-600 font-semibold px-1">
               ⚠ Mise à l'échelle ×{item.file_scale} sera appliquée à la production
             </p>
+          )}
+
+          {/* ── Analyse Claude (CMYK en priorité) ── */}
+          {claudeAnalysis && (
+            <div className="mt-2 space-y-1.5">
+              {/* CMYK — critique en premier */}
+              {(() => {
+                const cmyk = claudeAnalysis.checks?.find((c: any) => c.id === 'color_mode')
+                if (!cmyk) return null
+                return cmyk.status === 'error' ? (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-2.5 py-2">
+                    <span className="text-red-500 flex-shrink-0 font-black text-sm">🚫</span>
+                    <div>
+                      <p className="text-xs font-black text-red-700">FICHIER RGB — NON CONFORME IMPRESSION</p>
+                      <p className="text-[11px] text-red-600">{cmyk.message}</p>
+                    </div>
+                  </div>
+                ) : cmyk.status === 'ok' ? (
+                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
+                    <span className="text-emerald-500 font-black text-sm">✓</span>
+                    <p className="text-xs font-bold text-emerald-700">CMJN — Mode couleur conforme</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                    <span className="text-amber-500 text-sm">⚠</span>
+                    <p className="text-xs font-semibold text-amber-700">{cmyk.message}</p>
+                  </div>
+                )
+              })()}
+              {/* Score global */}
+              <div className={`flex items-center justify-between text-xs font-bold px-2.5 py-1.5 rounded-lg ${
+                claudeAnalysis.status === 'ok' ? 'bg-emerald-50 text-emerald-700' :
+                claudeAnalysis.status === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+              }`}>
+                <span className="text-[11px] font-medium truncate max-w-[200px]">{claudeAnalysis.summary}</span>
+                <span className="font-black ml-2 flex-shrink-0">{claudeAnalysis.score}/100</span>
+              </div>
+            </div>
           )}
 
           {/* Re-upload */}
