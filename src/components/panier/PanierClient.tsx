@@ -108,14 +108,54 @@ async function generatePDFPageThumb(file: File, pageNum: number): Promise<string
   }
 }
 
-// ── Détecte le nombre de pages d'un PDF depuis les bytes bruts ───────────────
-async function getPdfPageCount(file: File): Promise<number> {
+// ── Extrait métadonnées PDF : nombre de pages + dimensions MediaBox ───────────
+async function parsePdfMetadata(file: File): Promise<{
+  pageCount: number
+  pages: Array<{ widthMm: number; heightMm: number }>
+}> {
   try {
     const buffer = await file.arrayBuffer()
     const text = new TextDecoder('latin1').decode(new Uint8Array(buffer))
-    const m = text.match(/\/Type\s*\/Page[^s]/g)
-    return m ? Math.max(1, m.length) : 1
-  } catch { return 1 }
+    const PT_TO_MM = 0.352778
+
+    // Extraire toutes les MediaBox → dimensions par page
+    const pages: Array<{ widthMm: number; heightMm: number }> = []
+    const re = /\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text)) !== null) {
+      const wPt = Math.abs(parseFloat(m[3]) - parseFloat(m[1]))
+      const hPt = Math.abs(parseFloat(m[4]) - parseFloat(m[2]))
+      pages.push({ widthMm: Math.round(wPt * PT_TO_MM), heightMm: Math.round(hPt * PT_TO_MM) })
+    }
+
+    // Compter les pages réelles (/Type /Page sans /Pages)
+    const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
+    const pageCount = pageMatches ? Math.max(1, pageMatches.length) : Math.max(1, pages.length)
+    return { pageCount, pages: pages.slice(0, pageCount) }
+  } catch {
+    return { pageCount: 1, pages: [] }
+  }
+}
+
+// ── Compare dimensions fichier vs commande (tolérance fond perdu ±10mm) ───────
+function checkDimensions(
+  fileMm: { widthMm: number; heightMm: number },
+  orderedCm: { widthCm: number; heightCm: number },
+  toleranceMm = 10
+): 'ok' | 'bleed' | 'error' {
+  const ow = orderedCm.widthCm * 10  // mm
+  const oh = orderedCm.heightCm * 10
+  const fw = fileMm.widthMm
+  const fh = fileMm.heightMm
+  // Accepter aussi orientation inversée
+  const matchNormal   = Math.abs(fw - ow) <= toleranceMm && Math.abs(fh - oh) <= toleranceMm
+  const matchRotated  = Math.abs(fw - oh) <= toleranceMm && Math.abs(fh - ow) <= toleranceMm
+  if (matchNormal || matchRotated) {
+    // Vérifie si le fichier a des fonds perdus (légèrement plus grand)
+    const hasBleed = (fw > ow + 1 || fh > oh + 1) || (fw > oh + 1 || fh > ow + 1)
+    return hasBleed ? 'bleed' : 'ok'
+  }
+  return 'error'
 }
 
 // ── Détecte le mode colorimétrique en scannant les bytes bruts du PDF ────────
@@ -277,36 +317,40 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
         xhr.send(file)
       })
 
-      // 2. Détecter le nombre de pages
-      const totalPages = isPdf ? Math.min(await getPdfPageCount(file), MAX_PAGES) : 1
+      // 2. Extraire métadonnées PDF (pages + dimensions MediaBox)
+      const { pageCount: rawCount, pages: pageDims } = isPdf
+        ? await parsePdfMetadata(file)
+        : { pageCount: 1, pages: [] }
+      const totalPages = Math.min(rawCount, MAX_PAGES)
 
       // 3. Calculer les copies à distribuer (copies restantes avant cet upload)
       const copiesBeforeThis = files.reduce((s, f) => s + f.copies, 0)
       const availCopies = Math.max(totalPages, item.quantity - copiesBeforeThis)
       const copiesPerPage = Math.max(1, Math.floor(availCopies / totalPages))
 
-      const fileInfo = { width_mm: 0, height_mm: 0, colorspace: 'unknown', pages: totalPages, dpi: null }
-
       // 4. Créer les slots (1 par page pour PDF, 1 pour image)
       const newSlots: CartFile[] = totalPages > 1
-        ? Array.from({ length: totalPages }, (_, i) => ({
-            id:            i === 0 ? slotId : genId(),
-            file_url:      fileUrl,
-            file_name:     file.name,
-            file_thumb:    undefined,
-            file_validated: true,
-            file_info:     fileInfo,
-            copies:        copiesPerPage,
-            page_index:    i + 1,
-            total_pages:   totalPages,
-          }))
+        ? Array.from({ length: totalPages }, (_, i) => {
+            const dim = pageDims[i] ?? pageDims[0] ?? { widthMm: 0, heightMm: 0 }
+            return {
+              id:            i === 0 ? slotId : genId(),
+              file_url:      fileUrl,
+              file_name:     file.name,
+              file_thumb:    undefined,
+              file_validated: true,
+              file_info:     { width_mm: dim.widthMm, height_mm: dim.heightMm, colorspace: 'unknown', pages: totalPages, dpi: null },
+              copies:        copiesPerPage,
+              page_index:    i + 1,
+              total_pages:   totalPages,
+            }
+          })
         : [{
             id:            slotId,
             file_url:      fileUrl,
             file_name:     file.name,
             file_thumb:    undefined,
             file_validated: true,
-            file_info:     fileInfo,
+            file_info:     { width_mm: pageDims[0]?.widthMm ?? 0, height_mm: pageDims[0]?.heightMm ?? 0, colorspace: 'unknown', pages: 1, dpi: null },
             copies:        Math.max(1, item.quantity - copiesBeforeThis),
           }]
 
@@ -336,10 +380,21 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
       const analysisUrl = previewDataUrl ? await uploadPreviewToR2(previewDataUrl, presignData.key) : null
       const ctrl = new AbortController()
       setTimeout(() => ctrl.abort(), 60_000)
+      // Dimensions réelles détectées (pour enrichir le contexte Claude)
+      const detectedDims = pageDims[0]
+        ? `${Math.round(pageDims[0].widthMm / 10 * 10) / 10} × ${Math.round(pageDims[0].heightMm / 10 * 10) / 10} cm (détecté depuis MediaBox)`
+        : undefined
       try {
         const r = await fetch('/api/crm/analyze-file', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
-          body: JSON.stringify({ file_url: fileUrl, analysis_url: analysisUrl, cmyk_hint: cmykHint, file_name: file.name, dimensions: dims }),
+          body: JSON.stringify({
+            file_url:        fileUrl,
+            analysis_url:    analysisUrl,
+            cmyk_hint:       cmykHint,
+            file_name:       file.name,
+            dimensions:      dims,
+            detected_dims:   detectedDims,
+          }),
         })
         const analysis = await r.json()
         // Appliquer l'analyse à tous les slots de ce fichier
@@ -404,6 +459,14 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
           const hasIssue = (f.file_url && !f.file_validated && !scAcc) || cs === 'RGB' || dpSt === 'error'
           const minCopy  = 1   // chaque ligne = 1 visuel distinct, min 1 exemplaire
 
+          // Vérification dimensions fichier vs commande
+          const dimStatus = (f.file_info?.width_mm && f.file_info?.height_mm && item.width_cm && item.height_cm)
+            ? checkDimensions(
+                { widthMm: f.file_info.width_mm as number, heightMm: f.file_info.height_mm as number },
+                { widthCm: item.width_cm, heightCm: item.height_cm }
+              )
+            : null
+
           return (
             <div key={f.id} className="bg-white">
               {/* ── Ligne principale ── */}
@@ -452,10 +515,24 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                           : f.file_name}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {f.file_info?.width_mm && (
-                          <span className="text-[10px] text-slate-400">{f.file_info.width_mm}×{f.file_info.height_mm} mm</span>
-                        )}
-                        {f.file_url && (
+                        {/* Dimensions détectées + badge conformité */}
+                        {f.file_info?.width_mm ? (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1 py-0.5 ${
+                            dimStatus === 'ok'    ? 'bg-emerald-50 text-emerald-700'
+                            : dimStatus === 'bleed' ? 'bg-emerald-50 text-emerald-600'
+                            : dimStatus === 'error' ? 'bg-red-50 text-red-600'
+                            : 'text-slate-400'
+                          }`}>
+                            {dimStatus === 'ok'    && '✓ '}
+                            {dimStatus === 'bleed' && '✓ '}
+                            {dimStatus === 'error' && '⚠ '}
+                            {Math.round((f.file_info.width_mm ?? 0) / 10)}×{Math.round((f.file_info.height_mm ?? 0) / 10)} cm
+                            {dimStatus === 'error' && item.width_cm && (
+                              <span className="font-normal ml-0.5">(attendu {item.width_cm}×{item.height_cm})</span>
+                            )}
+                          </span>
+                        ) : null}
+                        {f.file_url && !dimStatus && (
                           <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${hasIssue ? 'text-orange-500' : 'text-green-600'}`}>
                             {hasIssue ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
                             {hasIssue ? (cs === 'RGB' ? 'RGB' : 'Vérifier') : 'OK'}

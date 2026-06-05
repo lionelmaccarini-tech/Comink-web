@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { file_url, file_name, product_name, dimensions, product_bleed, product_diecut,
-            analysis_url, cmyk_hint } = await req.json()
+            analysis_url, cmyk_hint, detected_dims } = await req.json()
 
     if (!file_url) {
       return NextResponse.json({ error: 'file_url requis' }, { status: 400 })
@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
       `Nom du fichier : ${file_name || 'inconnu'}`,
       analysis_url ? `NOTE : tu analyses un aperçu JPEG de la page 1 du fichier original (le PDF complet est trop volumineux pour transfert direct).` : null,
       cmykContext,
+      detected_dims ? `Dimensions réelles extraites du MediaBox PDF : ${detected_dims} — utilise cette valeur pour le check dimensions.` : null,
       product_name ? `Produit commandé : ${product_name}` : null,
       dimensions ? `Dimensions commandées : ${dimensions} — le fichier DOIT correspondre (+ fond perdu inclus)` : null,
       product_bleed ? `Fond perdu requis : ${product_bleed} sur chaque côté` : null,
