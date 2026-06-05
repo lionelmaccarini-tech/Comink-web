@@ -85,55 +85,69 @@ interface FileZoneProps {
   onValidated: (patch: Partial<CartItem>) => void
 }
 
-// Génère une miniature base64 pour une page d'un PDF via pdfjs-dist
-async function generatePDFPageThumb(file: File, pageNum: number): Promise<string | null> {
+// ── Analyse complète d'un PDF via PDF.js — une seule passe ───────────────────
+// Retourne : pages count, dimensions par page, preview JPEG page 1, hint CMYK
+interface PdfAnalysis {
+  pageCount: number
+  pages: Array<{ widthMm: number; heightMm: number }>
+  previewDataUrl: string | null
+  cmykHint: 'cmyk' | 'rgb' | 'unknown'
+  thumbs: Record<number, string>   // pageIndex (1-based) → dataUrl miniature
+}
+
+async function analyzePdfClientSide(file: File, maxPages = 50): Promise<PdfAnalysis> {
+  // CMYK hint depuis les 256 premiers KB (rapide, indépendant de PDF.js)
+  const cmykHint = await scanCmykHint(file)
+
   try {
     const pdfjsLib = await import('pdfjs-dist')
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
     const arrayBuffer = await file.arrayBuffer()
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-    const page = await pdf.getPage(pageNum)
-    const SIZE = 80
-    const viewport = page.getViewport({ scale: 1 })
-    const scale = SIZE / Math.max(viewport.width, viewport.height)
-    const scaled = page.getViewport({ scale })
-    const canvas = document.createElement('canvas')
-    canvas.width  = Math.round(scaled.width)
-    canvas.height = Math.round(scaled.height)
-    const ctx = canvas.getContext('2d')!
-    await (page.render as any)({ canvasContext: ctx, viewport: scaled }).promise
-    return canvas.toDataURL('image/jpeg', 0.80)
-  } catch {
-    return null
-  }
-}
-
-// ── Extrait métadonnées PDF : nombre de pages + dimensions MediaBox ───────────
-async function parsePdfMetadata(file: File): Promise<{
-  pageCount: number
-  pages: Array<{ widthMm: number; heightMm: number }>
-}> {
-  try {
-    const buffer = await file.arrayBuffer()
-    const text = new TextDecoder('latin1').decode(new Uint8Array(buffer))
     const PT_TO_MM = 0.352778
+    const pageCount = pdf.numPages
+    const limit = Math.min(pageCount, maxPages)
 
-    // Extraire toutes les MediaBox → dimensions par page
     const pages: Array<{ widthMm: number; heightMm: number }> = []
-    const re = /\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(text)) !== null) {
-      const wPt = Math.abs(parseFloat(m[3]) - parseFloat(m[1]))
-      const hPt = Math.abs(parseFloat(m[4]) - parseFloat(m[2]))
-      pages.push({ widthMm: Math.round(wPt * PT_TO_MM), heightMm: Math.round(hPt * PT_TO_MM) })
+    const thumbs: Record<number, string> = {}
+    let previewDataUrl: string | null = null
+    const THUMB_SIZE = 80
+    const PREVIEW_MAX = 1500
+
+    for (let i = 1; i <= limit; i++) {
+      const page = await pdf.getPage(i)
+      const vp = page.getViewport({ scale: 1 })
+
+      // Dimensions réelles depuis le viewport PDF.js (fiable même pour PDF compressé)
+      pages.push({
+        widthMm:  Math.round(vp.width  * PT_TO_MM),
+        heightMm: Math.round(vp.height * PT_TO_MM),
+      })
+
+      // Miniature 80×80 pour chaque page
+      const thumbScale = THUMB_SIZE / Math.max(vp.width, vp.height)
+      const tvp = page.getViewport({ scale: thumbScale })
+      const tc = document.createElement('canvas')
+      tc.width  = Math.round(tvp.width)
+      tc.height = Math.round(tvp.height)
+      await (page.render as any)({ canvasContext: tc.getContext('2d'), viewport: tvp }).promise
+      thumbs[i] = tc.toDataURL('image/jpeg', 0.75)
+
+      // Aperçu haute résolution page 1 pour Claude
+      if (i === 1) {
+        const pscale = Math.min(PREVIEW_MAX / vp.width, PREVIEW_MAX / vp.height, 3.0)
+        const pvp = page.getViewport({ scale: pscale })
+        const pc = document.createElement('canvas')
+        pc.width  = Math.round(pvp.width)
+        pc.height = Math.round(pvp.height)
+        await (page.render as any)({ canvasContext: pc.getContext('2d'), viewport: pvp }).promise
+        previewDataUrl = pc.toDataURL('image/jpeg', 0.85)
+      }
     }
 
-    // Compter les pages réelles (/Type /Page sans /Pages)
-    const pageMatches = text.match(/\/Type\s*\/Page[^s]/g)
-    const pageCount = pageMatches ? Math.max(1, pageMatches.length) : Math.max(1, pages.length)
-    return { pageCount, pages: pages.slice(0, pageCount) }
+    return { pageCount, pages, previewDataUrl, cmykHint, thumbs }
   } catch {
-    return { pageCount: 1, pages: [] }
+    return { pageCount: 1, pages: [], previewDataUrl: null, cmykHint, thumbs: {} }
   }
 }
 
@@ -158,10 +172,10 @@ function checkDimensions(
   return 'error'
 }
 
-// ── Détecte le mode colorimétrique en scannant les bytes bruts du PDF ────────
+// ── Scan CMYK depuis les 256 premiers KB du PDF (rapide) ─────────────────────
 async function scanCmykHint(file: File): Promise<'cmyk' | 'rgb' | 'unknown'> {
   try {
-    const chunk = await file.slice(0, 262144).arrayBuffer() // 256 KB suffisent
+    const chunk = await file.slice(0, 262144).arrayBuffer()
     const text = new TextDecoder('latin1').decode(chunk)
     if (/\/DeviceCMYK|DeviceCMYK/i.test(text)) return 'cmyk'
     if (/\/DeviceRGB|\/CalRGB|sRGB/i.test(text)) return 'rgb'
@@ -169,7 +183,7 @@ async function scanCmykHint(file: File): Promise<'cmyk' | 'rgb' | 'unknown'> {
   } catch { return 'unknown' }
 }
 
-// ── Génère un aperçu JPEG haute qualité page 1 pour analyse IA ───────────────
+// ── Génère un aperçu JPEG haute qualité page 1 (conservé pour SingleFileZone) ─
 async function generatePdfAnalysisPreview(file: File): Promise<string | null> {
   try {
     const pdfjsLib = await import('pdfjs-dist')
@@ -317,87 +331,76 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
         xhr.send(file)
       })
 
-      // 2. Extraire métadonnées PDF (pages + dimensions MediaBox)
-      const { pageCount: rawCount, pages: pageDims } = isPdf
-        ? await parsePdfMetadata(file)
-        : { pageCount: 1, pages: [] }
-      const totalPages = Math.min(rawCount, MAX_PAGES)
+      // 2. Analyse PDF complète via PDF.js (une seule passe : pages, dimensions, preview, thumbs)
+      setUploadPhaseMap(m => ({ ...m, [slotId]: 'analyze' }))
+      const pdfData = isPdf ? await analyzePdfClientSide(file, MAX_PAGES) : null
+      const totalPages = Math.min(pdfData?.pageCount ?? 1, MAX_PAGES)
+      const pageDims   = pdfData?.pages ?? []
 
-      // 3. Calculer les copies à distribuer (copies restantes avant cet upload)
+      // 3. Calculer les copies à distribuer
       const copiesBeforeThis = files.reduce((s, f) => s + f.copies, 0)
-      const availCopies = Math.max(totalPages, item.quantity - copiesBeforeThis)
-      const copiesPerPage = Math.max(1, Math.floor(availCopies / totalPages))
+      const copiesPerPage = Math.max(1, Math.floor(Math.max(totalPages, item.quantity - copiesBeforeThis) / totalPages))
 
-      // 4. Créer les slots (1 par page pour PDF, 1 pour image)
+      // 4. Créer les slots (1 par page PDF, 1 pour image)
       const newSlots: CartFile[] = totalPages > 1
         ? Array.from({ length: totalPages }, (_, i) => {
             const dim = pageDims[i] ?? pageDims[0] ?? { widthMm: 0, heightMm: 0 }
             return {
-              id:            i === 0 ? slotId : genId(),
-              file_url:      fileUrl,
-              file_name:     file.name,
-              file_thumb:    undefined,
+              id:             i === 0 ? slotId : genId(),
+              file_url:       fileUrl,
+              file_name:      file.name,
+              file_thumb:     pdfData?.thumbs[i + 1] ?? undefined,
               file_validated: true,
-              file_info:     { width_mm: dim.widthMm, height_mm: dim.heightMm, colorspace: 'unknown', pages: totalPages, dpi: null },
-              copies:        copiesPerPage,
-              page_index:    i + 1,
-              total_pages:   totalPages,
+              file_info:      { width_mm: dim.widthMm, height_mm: dim.heightMm, colorspace: 'unknown', pages: totalPages, dpi: null },
+              copies:         copiesPerPage,
+              page_index:     i + 1,
+              total_pages:    totalPages,
             }
           })
         : [{
-            id:            slotId,
-            file_url:      fileUrl,
-            file_name:     file.name,
-            file_thumb:    undefined,
+            id:             slotId,
+            file_url:       fileUrl,
+            file_name:      file.name,
+            file_thumb:     pdfData?.thumbs[1] ?? undefined,
             file_validated: true,
-            file_info:     { width_mm: pageDims[0]?.widthMm ?? 0, height_mm: pageDims[0]?.heightMm ?? 0, colorspace: 'unknown', pages: 1, dpi: null },
-            copies:        Math.max(1, item.quantity - copiesBeforeThis),
+            file_info:      { width_mm: pageDims[0]?.widthMm ?? 0, height_mm: pageDims[0]?.heightMm ?? 0, colorspace: 'unknown', pages: 1, dpi: null },
+            copies:         Math.max(1, item.quantity - copiesBeforeThis),
           }]
 
-      // Remplacer le placeholder par les vrais slots
+      // Remplacer le placeholder par les vrais slots (avec thumbs déjà inclus)
       setFiles(prev => [...prev.filter(f => f.id !== slotId), ...newSlots])
       syncToCart([...files.filter(f => f.id !== slotId), ...newSlots])
 
-      // 5. Générer les miniatures par page en arrière-plan
-      if (isPdf) {
-        newSlots.forEach(async (slot) => {
-          const pg = slot.page_index ?? 1
-          const thumb = await generatePDFPageThumb(file, pg)
-          if (thumb) setFiles(prev => prev.map(f => f.id === slot.id ? { ...f, file_thumb: thumb } : f))
-        })
-      } else {
+      // Pour les images (non-PDF) : générer la miniature
+      if (!isPdf) {
         const thumb = await generateImageThumb(file)
         if (thumb) setFiles(prev => prev.map(f => f.id === slotId ? { ...f, file_thumb: thumb } : f))
       }
 
-      // 6. Analyse Claude page 1 (preview + CMYK hint)
-      setUploadPhaseMap(m => ({ ...m, [slotId]: 'analyze' }))
+      // 5. Analyse Claude (preview + CMYK hint + dimensions réelles)
       const dims = item.width_cm && item.height_cm ? `${item.width_cm} × ${item.height_cm} cm` : undefined
-      const [cmykHint, previewDataUrl] = await Promise.all([
-        isPdf ? scanCmykHint(file) : Promise.resolve('unknown' as const),
-        isPdf ? generatePdfAnalysisPreview(file) : Promise.resolve(null),
-      ])
+      const cmykHint    = pdfData?.cmykHint ?? 'unknown'
+      const previewDataUrl = pdfData?.previewDataUrl ?? null
       const analysisUrl = previewDataUrl ? await uploadPreviewToR2(previewDataUrl, presignData.key) : null
+      const detectedDims = pageDims[0]
+        ? `${(pageDims[0].widthMm / 10).toFixed(1)} × ${(pageDims[0].heightMm / 10).toFixed(1)} cm (MediaBox PDF.js)`
+        : undefined
+
       const ctrl = new AbortController()
       setTimeout(() => ctrl.abort(), 60_000)
-      // Dimensions réelles détectées (pour enrichir le contexte Claude)
-      const detectedDims = pageDims[0]
-        ? `${Math.round(pageDims[0].widthMm / 10 * 10) / 10} × ${Math.round(pageDims[0].heightMm / 10 * 10) / 10} cm (détecté depuis MediaBox)`
-        : undefined
       try {
         const r = await fetch('/api/crm/analyze-file', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
           body: JSON.stringify({
-            file_url:        fileUrl,
-            analysis_url:    analysisUrl,
-            cmyk_hint:       cmykHint,
-            file_name:       file.name,
-            dimensions:      dims,
-            detected_dims:   detectedDims,
+            file_url:      fileUrl,
+            analysis_url:  analysisUrl,
+            cmyk_hint:     cmykHint,
+            file_name:     file.name,
+            dimensions:    dims,
+            detected_dims: detectedDims,
           }),
         })
         const analysis = await r.json()
-        // Appliquer l'analyse à tous les slots de ce fichier
         if (!analysis.error) setSlotAnalysis(prev => {
           const patch: Record<string, any> = {}
           newSlots.forEach(s => { patch[s.id] = analysis })
