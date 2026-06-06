@@ -21,6 +21,7 @@ export interface CartFile {
   file_validated?: boolean
   file_info?: FileInfo
   file_scale?: number
+  file_analysis?: any   // rapport analyse Claude (CMYK, dimensions, score…)
   copies: number        // nombre d'exemplaires couverts par ce fichier
   page_index?: number   // page dans un PDF multi-pages (1-based)
   total_pages?: number  // nombre total de pages du PDF source
@@ -40,6 +41,7 @@ export interface CartItemInput {
   file_validated?: boolean
   file_info?: FileInfo
   file_scale?: number
+  file_analysis?: any        // rapport analyse Claude (SingleFileZone)
   files?: CartFile[]         // mode multi-fichiers (quantity > 1)
   notes?: string
   reference?: string

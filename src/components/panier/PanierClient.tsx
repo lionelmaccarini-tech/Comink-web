@@ -401,11 +401,17 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
           }),
         })
         const analysis = await r.json()
-        if (!analysis.error) setSlotAnalysis(prev => {
-          const patch: Record<string, any> = {}
-          newSlots.forEach(s => { patch[s.id] = analysis })
-          return { ...prev, ...patch }
-        })
+        if (!analysis.error) {
+          setSlotAnalysis(prev => {
+            const patch: Record<string, any> = {}
+            newSlots.forEach(s => { patch[s.id] = analysis })
+            return { ...prev, ...patch }
+          })
+          // Persister l'analyse dans le cart pour le BAT
+          const withAnalysis = (prev: CartFile[]) =>
+            prev.map(f => newSlots.find(s => s.id === f.id) ? { ...f, file_analysis: analysis } : f)
+          setFiles(prev => { const u = withAnalysis(prev); syncToCart(u); return u })
+        }
       } catch { /* silent */ }
 
     } catch (err) {
@@ -781,6 +787,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
         file_name:      file.name,
         file_thumb:     thumb ?? undefined,
         file_validated: valData.dimensionMatch,
+        file_analysis:  analysis ?? undefined,
         file_info: {
           width_mm:   valData.dimensions?.width_mm,
           height_mm:  valData.dimensions?.height_mm,
@@ -2295,30 +2302,118 @@ export default function PanierClient() {
                 </div>
               </div>
 
-              {/* Items table */}
-              <div className="overflow-x-auto rounded-lg border border-slate-100 mb-4">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Produit</th>
-                      <th className="px-3 py-2 text-center">Dimensions</th>
-                      <th className="px-3 py-2 text-center">Qté</th>
-                      <th className="px-3 py-2 text-right">Prix HTVA</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {items.map(item => (
-                      <tr key={item.id}>
-                        <td className="px-3 py-2 font-medium text-slate-800">{item.product?.name || 'Produit'}</td>
-                        <td className="px-3 py-2 text-center text-slate-500">
-                          {item.width_cm && item.height_cm ? `${item.width_cm}×${item.height_cm} cm` : '—'}
-                        </td>
-                        <td className="px-3 py-2 text-center text-slate-500">{item.quantity}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-slate-800">{formatPrice(item.total_price)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* Items — visuels + rapport contrôle */}
+              <div className="space-y-4 mb-4">
+                {items.map(item => {
+                  // Collecter tous les fichiers de cette ligne
+                  const allFiles: Array<{ file: any; isSingle: boolean }> =
+                    item.files?.length
+                      ? item.files.filter(f => f.file_url).map(f => ({ file: f, isSingle: false }))
+                      : item.file_url
+                        ? [{ file: item, isSingle: true }]
+                        : []
+
+                  return (
+                    <div key={item.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                      {/* En-tête ligne produit */}
+                      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+                        <div>
+                          <span className="text-xs font-bold text-slate-800">{item.product?.name || 'Produit'}</span>
+                          {item.width_cm && item.height_cm && (
+                            <span className="ml-2 text-[10px] text-slate-500">{item.width_cm}×{item.height_cm} cm</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-slate-700">{item.quantity} ex.</span>
+                          <span className="ml-3 text-xs font-bold text-blue-700">{formatPrice(item.total_price)}</span>
+                        </div>
+                      </div>
+
+                      {/* Visuels */}
+                      {allFiles.length > 0 ? (
+                        <div className="divide-y divide-slate-50">
+                          {allFiles.map(({ file, isSingle }, fi) => {
+                            const a = (file as any).file_analysis
+                            const cmykCheck  = a?.checks?.find((c: any) => c.id === 'color_mode')
+                            const dimCheck   = a?.checks?.find((c: any) => c.id === 'dimensions')
+                            const resCheck   = a?.checks?.find((c: any) => c.id === 'resolution')
+                            const bleedCheck = a?.checks?.find((c: any) => c.id === 'bleed')
+                            const score      = a?.score
+
+                            return (
+                              <div key={(file as any).id ?? fi} className="flex items-start gap-3 px-3 py-2.5">
+                                {/* Miniature */}
+                                <div className="w-12 h-12 flex-shrink-0 rounded-lg border border-slate-200 overflow-hidden bg-slate-100 flex items-center justify-center">
+                                  {(file as any).file_thumb
+                                    ? <img src={(file as any).file_thumb} alt="" className="w-full h-full object-cover" />
+                                    : <FileText className="w-5 h-5 text-slate-300" />
+                                  }
+                                </div>
+
+                                {/* Infos fichier */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-semibold text-slate-700 truncate">
+                                    {(file as any).page_index && (file as any).total_pages
+                                      ? <><span className="text-slate-400 font-normal">p.{(file as any).page_index}/{(file as any).total_pages} — </span>{(file as any).file_name}</>
+                                      : (file as any).file_name || '—'}
+                                  </p>
+
+                                  {/* Dimensions détectées */}
+                                  {(file as any).file_info?.width_mm > 0 && (
+                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                      {Math.round((file as any).file_info.width_mm / 10)}×{Math.round((file as any).file_info.height_mm / 10)} cm
+                                    </p>
+                                  )}
+
+                                  {/* Badges rapport IA */}
+                                  {a && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {cmykCheck && (
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${cmykCheck.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                          {cmykCheck.status === 'ok' ? '✓ CMJN' : '✗ RGB'}
+                                        </span>
+                                      )}
+                                      {dimCheck && (
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${dimCheck.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : dimCheck.status === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                          {dimCheck.status === 'ok' ? '✓ Format' : `⚠ ${dimCheck.message?.slice(0, 30)}`}
+                                        </span>
+                                      )}
+                                      {resCheck && resCheck.status !== 'ok' && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                          ⚠ Résolution
+                                        </span>
+                                      )}
+                                      {bleedCheck && bleedCheck.status === 'error' && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                                          ✗ Fonds perdus
+                                        </span>
+                                      )}
+                                      {score != null && (
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-auto ${score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                          {score}/100
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {!a && (file as any).file_url && (
+                                    <p className="text-[10px] text-slate-400 italic mt-1">Analyse non disponible</p>
+                                  )}
+                                </div>
+
+                                {/* Copies */}
+                                <div className="flex-shrink-0 text-right">
+                                  <span className="text-xs font-bold text-slate-700">{(file as any).copies ?? item.quantity} ex.</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="px-3 py-2 text-[11px] text-slate-400 italic">Aucun fichier déposé</div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Totals */}
