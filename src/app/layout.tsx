@@ -49,20 +49,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const gaId   = seo.seo_ga_id   as string | undefined
   const gscCode = seo.seo_gsc_code as string | undefined
 
-  // Masquer le shell Comink sur les pages JDE (layout propre jaune/rouge)
+  // Masquer le shell Comink sur les pages JDE et backoffice (qui ont leur propre nav)
   const headersList = await headers()
   const pathname = headersList.get('x-pathname') || ''
   const isJDE = pathname.startsWith('/jde')
+  const isBackOffice = pathname.startsWith('/production') || pathname.startsWith('/admin') || pathname.startsWith('/crm')
 
   return (
     <html lang="fr" className={inter.variable}>
       <head>
         {gscCode && <meta name="google-site-verification" content={gscCode} />}
       </head>
-      {isJDE ? (
-        // Pages JDE : pas de header/footer/chat Comink
+      {isJDE || isBackOffice ? (
+        // Pages JDE + backoffice : layout propre sans header/footer/sidebar public
         <body className="antialiased">
-          {children}
+          <Toaster>{children}</Toaster>
         </body>
       ) : (
         <body className="min-h-screen bg-sky-50 flex flex-col antialiased">
