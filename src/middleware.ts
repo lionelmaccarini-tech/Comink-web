@@ -8,10 +8,12 @@ const JDE_HOSTS = [
 
 export function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || ''
-  const res = NextResponse.next()
 
-  // ── Toujours transmettre le pathname pour que le root layout le lise ─────────
-  res.headers.set('x-pathname', req.nextUrl.pathname)
+  // ── Transmettre le pathname comme REQUEST header ──────────────────────────────
+  // headers() dans un Server Component lit les request headers, pas les response headers
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set('x-pathname', req.nextUrl.pathname)
+  const res = NextResponse.next({ request: { headers: requestHeaders } })
 
   // ── Domaine JDE → réécriture vers /jde/* ─────────────────────────────────────
   const isJDEHost = JDE_HOSTS.some(h => hostname === h || hostname.startsWith(h + ':'))
@@ -23,9 +25,9 @@ export function middleware(req: NextRequest) {
       !url.pathname.startsWith('/_next')
     ) {
       url.pathname = url.pathname === '/' ? '/jde' : `/jde${url.pathname}`
-      const rewrite = NextResponse.rewrite(url)
-      rewrite.headers.set('x-pathname', url.pathname)
-      return rewrite
+      const rewriteHeaders = new Headers(req.headers)
+      rewriteHeaders.set('x-pathname', url.pathname)
+      return NextResponse.rewrite(url, { request: { headers: rewriteHeaders } })
     }
   }
 
