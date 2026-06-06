@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
 // GET — charger un article complet (admin)
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createServiceClient()
     const { data, error } = await supabase
       .from('blog_posts')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
     if (error) throw error
     return NextResponse.json(data)
@@ -18,8 +19,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 // PATCH — mettre à jour un article
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const body = await req.json()
     const supabase = await createServiceClient()
     const now = new Date().toISOString()
@@ -30,7 +32,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     for (const key of allowed) {
       if (key in body) patch[key] = body[key]
     }
-    // Auto-set published_at quand on publie
     if (patch.published === true && !patch.published_at) {
       patch.published_at = now
     }
@@ -41,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const { data, error } = await supabase
       .from('blog_posts')
       .update(patch)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
     if (error) throw error
@@ -52,13 +53,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE — supprimer un article
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createServiceClient()
     const { error } = await supabase
       .from('blog_posts')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
     if (error) throw error
     return NextResponse.json({ ok: true })
   } catch (err: any) {
