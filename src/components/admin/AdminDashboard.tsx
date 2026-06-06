@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy } from 'lucide-react'
+import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ProductModal from './ProductModal'
 import CollaborateursTab from './CollaborateursTab'
@@ -11,8 +11,9 @@ import PriceListsTab from './PriceListsTab'
 import CategoriesTab, { type Category } from './CategoriesTab'
 import ProductionTab from './ProductionTab'
 import PaymentDeliveryTab from './PaymentDeliveryTab'
+import BlogTab from './BlogTab'
 
-type TabId = 'produits' | 'clients' | 'listes-prix' | 'collaborateurs' | 'categories' | 'production' | 'payment' | 'parametres'
+type TabId = 'produits' | 'clients' | 'listes-prix' | 'collaborateurs' | 'categories' | 'production' | 'payment' | 'blog' | 'parametres'
 
 export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const searchParams = useSearchParams()
@@ -208,6 +209,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             { id: 'categories' as const, icon: FolderOpen, label: 'Catégories', badge: categories.length > 0 ? categories.length : undefined },
             { id: 'production' as const, icon: Settings2, label: 'Production', badge: undefined },
             { id: 'payment' as const, icon: CreditCard, label: 'Paiement & Livraison', badge: undefined },
+            { id: 'blog' as const, icon: BookOpen, label: 'Blog', badge: undefined },
             { id: 'parametres' as const, icon: Settings, label: 'Paramètres', badge: undefined },
           ]).map(({ id, icon: Icon, label, badge }) => (
             <button key={id} onClick={() => setTab(id)}
@@ -401,6 +403,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
         {/* ── PAIEMENT & LIVRAISON ── */}
         {tab === 'payment' && <PaymentDeliveryTab />}
+
+        {/* ── BLOG ── */}
+        {tab === 'blog' && <BlogTab />}
 
         {/* ── PARAMÈTRES ── */}
         {tab === 'parametres' && (
