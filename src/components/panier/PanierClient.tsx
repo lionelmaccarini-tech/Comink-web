@@ -176,6 +176,41 @@ function checkDimensions(
   return 'error'
 }
 
+// ── Calcule le ratio de mise à l'échelle si les proportions fichier ≈ commande ─
+// Retourne null si les proportions ne correspondent pas (format incompatible)
+// Exemples : 210×297 mm → 420×594 mm → scale 2.0 ; 1000×1000 mm → 100×100 mm → scale 0.1
+function computeSuggestedScale(
+  fileMm: { widthMm: number; heightMm: number },
+  orderedCm: { widthCm: number; heightCm: number }
+): number | null {
+  const ow = orderedCm.widthCm * 10  // mm
+  const oh = orderedCm.heightCm * 10
+  const fw = fileMm.widthMm
+  const fh = fileMm.heightMm
+  if (!fw || !fh || !ow || !oh) return null
+
+  // Tolérance de proportionnalité : les deux ratios doivent être à < 5% l'un de l'autre
+  const PROP_TOL = 0.05
+
+  // Orientation normale : fw/ow ≈ fh/oh
+  const scaleNW = ow / fw
+  const scaleNH = oh / fh
+  if (Math.abs(scaleNW - scaleNH) / Math.max(scaleNW, scaleNH) < PROP_TOL) {
+    const scale = Math.round(((scaleNW + scaleNH) / 2) * 1000) / 1000
+    if (Math.abs(scale - 1) > 0.02) return scale  // ≠ 1 → vraie mise à l'échelle
+  }
+
+  // Orientation inversée (fichier en portrait, commande en paysage ou vice-versa)
+  const scaleRW = ow / fh
+  const scaleRH = oh / fw
+  if (Math.abs(scaleRW - scaleRH) / Math.max(scaleRW, scaleRH) < PROP_TOL) {
+    const scale = Math.round(((scaleRW + scaleRH) / 2) * 1000) / 1000
+    if (Math.abs(scale - 1) > 0.02) return scale
+  }
+
+  return null  // proportions incompatibles → pas de mise à l'échelle possible
+}
+
 // ── Scan CMYK depuis les bytes bruts du PDF ───────────────────────────────────
 // Accepte un ArrayBuffer déjà chargé pour éviter une 2e lecture du fichier
 async function scanCmykHint(file: File, existingBuffer?: ArrayBuffer): Promise<'cmyk' | 'rgb' | 'unknown'> {
@@ -783,6 +818,10 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
               const dimStatus = (pdfDims && item.width_cm && item.height_cm)
                 ? checkDimensions(pdfDims, { widthCm: item.width_cm, heightCm: item.height_cm }, bleedMm)
                 : null
+              // Calcul du ratio de mise à l'échelle si les proportions correspondent
+              const sugScale = (dimStatus === 'error' && pdfDims && item.width_cm && item.height_cm)
+                ? computeSuggestedScale(pdfDims, { widthCm: item.width_cm, heightCm: item.height_cm })
+                : null
               return Promise.resolve({
                 ok: dimStatus !== 'error',
                 dimensionMatch: dimStatus !== 'error',
@@ -793,7 +832,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
                 warnings: dimStatus === 'error'
                   ? [`Format ${pdfDims?.widthMm ? Math.round(pdfDims.widthMm/10) : '?'}×${pdfDims?.heightMm ? Math.round(pdfDims.heightMm/10) : '?'} cm ≠ commandé ${item.width_cm}×${item.height_cm} cm`]
                   : [],
-                suggestedScale: null,
+                suggestedScale: sugScale,
               })
             })()
           : (async () => {
@@ -1006,48 +1045,56 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
             )
           })()}
 
-          {/* Dimension mismatch warning */}
-          {!dimensionMatch && !scaleAccepted && suggestedScale && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-              <p className="text-xs font-semibold text-orange-700 mb-2">
-                Dimensions différentes de la commande
-                {item.width_cm && item.height_cm
-                  ? ` (commandé : ${item.width_cm * 10}×${item.height_cm * 10} mm)`
-                  : ''}
+          {/* Dimension mismatch — avec ou sans mise à l'échelle possible */}
+          {!dimensionMatch && !scaleAccepted && dimW && dimH && (
+            <div className={`rounded-xl p-3 border ${suggestedScale ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-300'}`}>
+              <p className={`text-xs font-bold mb-1 ${suggestedScale ? 'text-orange-700' : 'text-red-700'}`}>
+                {suggestedScale ? '⚠ Format différent de la commande' : '⚠ Format fichier incompatible'}
               </p>
-              <p className="text-[11px] text-orange-600 mb-3">
-                Mise à l'échelle suggérée : ×{suggestedScale}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAcceptScale}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors"
-                >
-                  Oui, mettre à l'échelle (×{suggestedScale})
-                </button>
-                <button
-                  onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5"
-                >
-                  Continuer quand même
-                </button>
-              </div>
-            </div>
-          )}
-          {/* Dimension mismatch sans scale suggéré (gros fichiers, dims PDF.js) */}
-          {!dimensionMatch && !scaleAccepted && !suggestedScale && dimW && dimH && item.width_cm && item.height_cm && (
-            <div className="bg-red-50 border border-red-300 rounded-xl p-3">
-              <p className="text-xs font-black text-red-700 mb-1">⚠ Format fichier incompatible</p>
-              <p className="text-[11px] text-red-600 mb-2">
+              <p className="text-[11px] text-slate-600 mb-2">
                 Fichier : <strong>{Math.round((dimW as number)/10)}×{Math.round((dimH as number)/10)} cm</strong>
-                {' '}— Commande : <strong>{item.width_cm}×{item.height_cm} cm</strong>
+                {item.width_cm && item.height_cm && (
+                  <> — Commande : <strong>{item.width_cm}×{item.height_cm} cm</strong></>
+                )}
               </p>
-              <button
-                onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
-                className="text-[11px] text-slate-500 hover:text-slate-700 underline"
-              >
-                Continuer quand même (je confirme les dimensions)
-              </button>
+              {suggestedScale ? (
+                <>
+                  <p className="text-[11px] text-orange-600 mb-3">
+                    Les proportions correspondent — mise à l'échelle ×{suggestedScale} possible
+                    {suggestedScale < 1
+                      ? ` (réduction au ${Math.round(suggestedScale * 100)}%)`
+                      : suggestedScale > 1
+                      ? ` (agrandissement ×${suggestedScale})`
+                      : ''}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAcceptScale}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors"
+                    >
+                      Oui, appliquer ×{suggestedScale} à la production
+                    </button>
+                    <button
+                      onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
+                      className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5"
+                    >
+                      Continuer sans mise à l'échelle
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] text-red-600 mb-2">
+                    Les proportions ne correspondent pas — vérifiez le fichier ou contactez-nous.
+                  </p>
+                  <button
+                    onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
+                    className="text-[11px] text-slate-500 hover:text-slate-700 underline"
+                  >
+                    Continuer quand même (je confirme les dimensions)
+                  </button>
+                </>
+              )}
             </div>
           )}
           {scaleAccepted && item.file_scale && (
