@@ -401,9 +401,9 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{product ? 'Modifier le produit' : 'Nouveau produit'}</h2>
             {form.name && <p className="text-xs text-slate-400 mt-0.5">{form.name}</p>}
@@ -423,7 +423,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-100 px-6 overflow-x-auto">
+        <div className="flex-shrink-0 flex border-b border-slate-100 px-6 overflow-x-auto">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setSection(t.id as any)}
               className={cn('px-4 py-3 text-sm font-semibold border-b-2 transition-colors -mb-px whitespace-nowrap', section === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700')}>
@@ -433,7 +433,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-5">
 
           {/* ─── GÉNÉRAL ─── */}
           {section === 'general' && (
