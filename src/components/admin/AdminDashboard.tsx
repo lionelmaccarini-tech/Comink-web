@@ -151,6 +151,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       seo_description:           p.seo_description ?? null,
       jde_enabled:               p.jde_enabled ?? false,
       visibility_group:          p.visibility_group ?? null,
+      bleed_mm:                  p.bleed_mm ?? 3,
     }
     try {
       const res = await fetch('/api/admin/products', {

@@ -151,21 +151,23 @@ async function analyzePdfClientSide(file: File, maxPages = 50): Promise<PdfAnaly
   }
 }
 
-// ── Compare dimensions fichier vs commande (tolérance fond perdu ±10mm) ───────
+// ── Compare dimensions fichier vs commande avec fonds perdus ─────────────────
 function checkDimensions(
   fileMm: { widthMm: number; heightMm: number },
   orderedCm: { widthCm: number; heightCm: number },
-  toleranceMm = 10
+  bleedMm = 3   // fonds perdus requis (par défaut 3mm de chaque côté)
 ): 'ok' | 'bleed' | 'error' {
   const ow = orderedCm.widthCm * 10  // mm
   const oh = orderedCm.heightCm * 10
   const fw = fileMm.widthMm
   const fh = fileMm.heightMm
+  // Tolérance = bleed × 2 (chaque côté) + 2mm de marge technique
+  const tolerance = bleedMm * 2 + 2
   // Accepter aussi orientation inversée
-  const matchNormal   = Math.abs(fw - ow) <= toleranceMm && Math.abs(fh - oh) <= toleranceMm
-  const matchRotated  = Math.abs(fw - oh) <= toleranceMm && Math.abs(fh - ow) <= toleranceMm
+  const matchNormal  = Math.abs(fw - ow) <= tolerance && Math.abs(fh - oh) <= tolerance
+  const matchRotated = Math.abs(fw - oh) <= tolerance && Math.abs(fh - ow) <= tolerance
   if (matchNormal || matchRotated) {
-    // Vérifie si le fichier a des fonds perdus (légèrement plus grand)
+    // Fichier légèrement plus grand que commandé → fonds perdus présents
     const hasBleed = (fw > ow + 1 || fh > oh + 1) || (fw > oh + 1 || fh > ow + 1)
     return hasBleed ? 'bleed' : 'ok'
   }
@@ -385,6 +387,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
       const detectedDims = pageDims[0]
         ? `${(pageDims[0].widthMm / 10).toFixed(1)} × ${(pageDims[0].heightMm / 10).toFixed(1)} cm (MediaBox PDF.js)`
         : undefined
+      const bleedMmValue = (item as any).bleed_mm ?? (item.product as any)?.bleed_mm ?? 3
 
       const ctrl = new AbortController()
       setTimeout(() => ctrl.abort(), 60_000)
@@ -398,6 +401,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
             file_name:     file.name,
             dimensions:    dims,
             detected_dims: detectedDims,
+            product_bleed: bleedMmValue > 0 ? `${bleedMmValue}mm de chaque côté` : undefined,
           }),
         })
         const analysis = await r.json()
@@ -469,10 +473,12 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
           const minCopy  = 1   // chaque ligne = 1 visuel distinct, min 1 exemplaire
 
           // Vérification dimensions fichier vs commande
+          const itemBleedMm = (item as any).bleed_mm ?? (item.product as any)?.bleed_mm ?? 3
           const dimStatus = (f.file_info?.width_mm && f.file_info?.height_mm && item.width_cm && item.height_cm)
             ? checkDimensions(
                 { widthMm: f.file_info.width_mm as number, heightMm: f.file_info.height_mm as number },
-                { widthCm: item.width_cm, heightCm: item.height_cm }
+                { widthCm: item.width_cm, heightCm: item.height_cm },
+                itemBleedMm
               )
             : null
 
@@ -765,11 +771,12 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
             headers: { 'Content-Type': 'application/json' },
             signal: ctrl.signal,
             body: JSON.stringify({
-              file_url:     uploadData.url,
-              analysis_url: analysisUrl,
-              cmyk_hint:    cmykHint,
-              file_name:    file.name,
-              dimensions:   dims,
+              file_url:      uploadData.url,
+              analysis_url:  analysisUrl,
+              cmyk_hint:     cmykHint,
+              file_name:     file.name,
+              dimensions:    dims,
+              product_bleed: (() => { const b = (item as any).bleed_mm ?? (item.product as any)?.bleed_mm ?? 3; return b > 0 ? `${b}mm de chaque côté` : undefined })(),
             }),
           })
           return r.json()

@@ -94,6 +94,8 @@ interface ProductForm {
   max_height_cm: number | ''
   // Standard
   standard_sizes: StandardSize[]
+  // Fonds perdus
+  bleed_mm: number | ''
   // Options
   finition_groups: FinitionGroup[]
   delai_options: DelaiOption[]
@@ -138,6 +140,7 @@ const emptyForm = (): ProductForm => ({
   min_height_cm: '',
   max_height_cm: '',
   standard_sizes: [],
+  bleed_mm: 3,
   finition_groups: [],
   sides_finitions: null,
   seo_title: '',
@@ -246,6 +249,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         min_height_cm: product.min_height_cm ?? '',
         max_height_cm: product.max_height_cm ?? '',
         standard_sizes: product.standard_sizes ?? [],
+        bleed_mm: (product as any).bleed_mm ?? 3,
         finition_groups: normalizeFinitions(product.finitions ?? []),
         sides_finitions: product.sides_finitions ?? null,
         delai_options: product.delai_options?.length ? product.delai_options : emptyForm().delai_options,
@@ -368,6 +372,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         min_height_cm: form.min_height_cm !== '' ? Number(form.min_height_cm) : null,
         max_height_cm: form.max_height_cm !== '' ? Number(form.max_height_cm) : null,
         standard_sizes: form.product_type === 'taille_standard' ? form.standard_sizes : [],
+        bleed_mm: form.bleed_mm !== '' ? Number(form.bleed_mm) : 3,
         finitions: form.finition_groups,   // stored as `finitions` in DB
         sides_finitions: form.sides_finitions,
         delai_options: form.delai_options,
@@ -509,6 +514,31 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
                       {rate}%
                     </button>
                   ))}
+                </div>
+              </Field>
+
+              <Field label="Fonds perdus requis (mm)" hint="Marge supplémentaire autour du visuel pour l'impression. Utilisé pour la vérification automatique des fichiers clients.">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-2">
+                    {[0, 2, 3, 5, 8, 10].map(v => (
+                      <button key={v} type="button"
+                        onClick={() => set('bleed_mm', v)}
+                        className={cn('px-3 py-1.5 rounded-lg border text-sm font-bold transition-all',
+                          form.bleed_mm === v
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'border-slate-200 text-slate-600 hover:border-blue-300'
+                        )}>
+                        {v === 0 ? 'Aucun' : `${v} mm`}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number" min="0" max="50" step="1"
+                    value={form.bleed_mm}
+                    onChange={e => set('bleed_mm', e.target.value === '' ? '' : Number(e.target.value))}
+                    className={`${smallInputCls} w-20`}
+                    placeholder="mm"
+                  />
                 </div>
               </Field>
 

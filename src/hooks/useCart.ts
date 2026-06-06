@@ -42,6 +42,7 @@ export interface CartItemInput {
   file_info?: FileInfo
   file_scale?: number
   file_analysis?: any        // rapport analyse Claude (SingleFileZone)
+  bleed_mm?: number          // fonds perdus requis (depuis paramètres produit)
   files?: CartFile[]         // mode multi-fichiers (quantity > 1)
   notes?: string
   reference?: string

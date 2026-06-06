@@ -205,7 +205,7 @@ export default function ProduitClient({ product }: Props) {
 
   function handleAddToCart() {
     if (hasError) return
-    addItem({ product_id: product.id, product, quantity, width_cm: isSurMesure ? width : selectedSize?.width_cm, height_cm: isSurMesure ? height : selectedSize?.height_cm, unit_price: unitPrice, total_price: totalPrice, selectedFinitions, selectedDelai, selectedSides } as any)
+    addItem({ product_id: product.id, product, quantity, width_cm: isSurMesure ? width : selectedSize?.width_cm, height_cm: isSurMesure ? height : selectedSize?.height_cm, bleed_mm: (product as any).bleed_mm ?? 3, unit_price: unitPrice, total_price: totalPrice, selectedFinitions, selectedDelai, selectedSides } as any)
     setAdded(true); setTimeout(() => setAdded(false), 2500)
   }
 
