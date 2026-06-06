@@ -1826,9 +1826,19 @@ export default function PanierClient() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-bold text-slate-900">{item.product?.name || 'Produit'}</h3>
-                      {item.width_cm && item.height_cm && (
-                        <p className="text-xs text-slate-400 mt-0.5">{item.width_cm}×{item.height_cm} cm</p>
-                      )}
+                      {item.width_cm && item.height_cm && (() => {
+                        // Pour les produits taille_standard : trouver le label de la taille
+                        const sizes: any[] = item.product?.standard_sizes ?? []
+                        const matchedSize = sizes.find((s: any) =>
+                          s.width_cm === item.width_cm && s.height_cm === item.height_cm
+                        )
+                        const sizeLabel = matchedSize?.name || matchedSize?.label || null
+                        return (
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {sizeLabel ? `${sizeLabel} — ` : ''}{item.width_cm}×{item.height_cm} cm
+                          </p>
+                        )
+                      })()}
                       {/* Finitions choisies */}
                       {(() => {
                         const labels = getFinitionLabels(item)
