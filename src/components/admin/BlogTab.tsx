@@ -347,7 +347,8 @@ export default function BlogTab() {
     setLoading(true)
     try {
       const res = await fetch('/api/admin/blog')
-      setPosts(await res.json())
+      const data = await res.json()
+      setPosts(Array.isArray(data) ? data : [])
     } catch { /* silent */ }
     finally { setLoading(false) }
   }, [])
