@@ -761,16 +761,41 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
       const isPdf = file.name.toLowerCase().endsWith('.pdf')
       const isLargeFile = file.size > 10 * 1024 * 1024
 
-      // Preview + CMYK hint pour tous les PDFs (obligatoire pour les gros fichiers)
-      const [cmykHint, previewDataUrl] = await Promise.all([
-        isPdf ? scanCmykHint(file) : Promise.resolve('unknown' as const),
-        isPdf ? generatePdfAnalysisPreview(file) : Promise.resolve(null),
-      ])
+      // Analyse PDF.js une seule passe : dimensions page 1 + preview JPEG + CMYK hint
+      let pdfAnalysis: PdfAnalysis | null = null
+      let cmykHint: 'cmyk' | 'rgb' | 'unknown' = 'unknown'
+      let previewDataUrl: string | null = null
+      if (isPdf) {
+        pdfAnalysis = await analyzePdfClientSide(file, 1)  // page 1 suffit pour SingleFileZone
+        cmykHint = pdfAnalysis.cmykHint
+        previewDataUrl = pdfAnalysis.previewDataUrl
+      }
       const analysisUrl = previewDataUrl ? await uploadPreviewToR2(previewDataUrl, presignData.key) : null
+
+      // Dimensions extraites par PDF.js (valables même pour les gros fichiers)
+      const pdfDims = pdfAnalysis?.pages[0] ?? null
+      const bleedMm = (item as any).bleed_mm ?? (item.product as any)?.bleed_mm ?? 3
 
       const [valResult, claudeResult] = await Promise.allSettled([
         isLargeFile
-          ? Promise.resolve({ ok: true, dimensionMatch: true, colorspace: cmykHint === 'cmyk' ? 'cmyk' : 'unknown', dimensions: { width_mm: 0, height_mm: 0 }, pages: 1, dpi: null, dpi_status: "unknown" as const, width_px: 0, height_px: 0, warnings: [], suggestedScale: null })
+          ? (() => {
+              // Pour les gros fichiers : utiliser les dims PDF.js + vérifier vs commande
+              const dimStatus = (pdfDims && item.width_cm && item.height_cm)
+                ? checkDimensions(pdfDims, { widthCm: item.width_cm, heightCm: item.height_cm }, bleedMm)
+                : null
+              return Promise.resolve({
+                ok: dimStatus !== 'error',
+                dimensionMatch: dimStatus !== 'error',
+                colorspace: cmykHint === 'cmyk' ? 'cmyk' : 'unknown',
+                dimensions: { width_mm: pdfDims?.widthMm ?? 0, height_mm: pdfDims?.heightMm ?? 0 },
+                pages: pdfAnalysis?.pageCount ?? 1,
+                dpi: null, dpi_status: 'unknown' as const, width_px: 0, height_px: 0,
+                warnings: dimStatus === 'error'
+                  ? [`Format ${pdfDims?.widthMm ? Math.round(pdfDims.widthMm/10) : '?'}×${pdfDims?.heightMm ? Math.round(pdfDims.heightMm/10) : '?'} cm ≠ commandé ${item.width_cm}×${item.height_cm} cm`]
+                  : [],
+                suggestedScale: null,
+              })
+            })()
           : (async () => {
               const fd2 = new FormData()
               fd2.append('file', file)
@@ -792,6 +817,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
               cmyk_hint:     cmykHint,
               file_name:     file.name,
               dimensions:    dims,
+              detected_dims: pdfDims ? `${(pdfDims.widthMm/10).toFixed(1)} × ${(pdfDims.heightMm/10).toFixed(1)} cm (PDF.js)` : undefined,
               product_bleed: (() => { const b = (item as any).bleed_mm ?? (item.product as any)?.bleed_mm ?? 3; return b > 0 ? `${b}mm de chaque côté` : undefined })(),
             }),
           })
@@ -1006,6 +1032,22 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
                   Continuer quand même
                 </button>
               </div>
+            </div>
+          )}
+          {/* Dimension mismatch sans scale suggéré (gros fichiers, dims PDF.js) */}
+          {!dimensionMatch && !scaleAccepted && !suggestedScale && dimW && dimH && item.width_cm && item.height_cm && (
+            <div className="bg-red-50 border border-red-300 rounded-xl p-3">
+              <p className="text-xs font-black text-red-700 mb-1">⚠ Format fichier incompatible</p>
+              <p className="text-[11px] text-red-600 mb-2">
+                Fichier : <strong>{Math.round((dimW as number)/10)}×{Math.round((dimH as number)/10)} cm</strong>
+                {' '}— Commande : <strong>{item.width_cm}×{item.height_cm} cm</strong>
+              </p>
+              <button
+                onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
+                className="text-[11px] text-slate-500 hover:text-slate-700 underline"
+              >
+                Continuer quand même (je confirme les dimensions)
+              </button>
             </div>
           )}
           {scaleAccepted && item.file_scale && (
