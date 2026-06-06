@@ -8,19 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
-interface NavProduct {
+interface NavCategory {
   id: string
-  name: string
-  category: string
-  product_type: 'sur_mesure' | 'taille_standard'
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  banderoles: 'Banderoles', roll_up: 'Roll-up', drapeaux: 'Drapeaux',
-  adhesifs: 'Adhésifs', toiles: 'Toiles', baches: 'Bâches',
-  panneaux: 'Panneaux', textile: 'Textile', papier: 'Papier',
-  accessoires: 'Accessoires', supports_evenementiels: 'Supports évènementiels',
-  vinyle_autocollant: 'Vinyle autocollant', autre: 'Autre',
+  label: string
 }
 
 export default function Header() {
@@ -29,6 +19,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [cartCount, setCartCount] = useState(0)
   const [userProfile, setUserProfile] = useState<{ email: string; full_name?: string; role: string } | null>(null)
+  const [navCats, setNavCats] = useState<{ sur_mesure: NavCategory[]; taille_standard: NavCategory[] }>({ sur_mesure: [], taille_standard: [] })
   const catalogRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
@@ -47,6 +38,14 @@ export default function Header() {
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Load nav categories dynamically
+  useEffect(() => {
+    fetch('/api/products/nav-categories')
+      .then(r => r.json())
+      .then(d => { if (d.sur_mesure) setNavCats(d) })
+      .catch(() => {})
   }, [])
 
   // Load user profile
@@ -89,9 +88,6 @@ export default function Header() {
       window.removeEventListener('cart-updated', updateCount)
     }
   }, [])
-
-  const surMesureCategories = ['banderoles', 'baches', 'toiles', 'adhesifs', 'drapeaux', 'panneaux', 'vinyle_autocollant']
-  const tailleStandardCategories = ['roll_up', 'textile', 'accessoires']
 
   // Masquer le header site sur les pages back-office
   const BACKOFFICE = ['/admin', '/production', '/crm']
@@ -143,24 +139,28 @@ export default function Header() {
                     className="absolute top-full left-0 mt-3 w-72 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50"
                   >
                     <div className="grid grid-cols-2 divide-x divide-slate-100">
-                      <div className="py-2">
-                        <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sur mesure</p>
-                        {surMesureCategories.map((cat) => (
-                          <Link key={cat} href={`/catalogue?type=sur_mesure&category=${cat}`}
-                            className="flex items-center px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            {CATEGORY_LABELS[cat] || cat}
-                          </Link>
-                        ))}
-                      </div>
-                      <div className="py-2">
-                        <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taille standard</p>
-                        {tailleStandardCategories.map((cat) => (
-                          <Link key={cat} href={`/catalogue?type=taille_standard&category=${cat}`}
-                            className="flex items-center px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                            {CATEGORY_LABELS[cat] || cat}
-                          </Link>
-                        ))}
-                      </div>
+                      {navCats.sur_mesure.length > 0 && (
+                        <div className="py-2">
+                          <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sur mesure</p>
+                          {navCats.sur_mesure.map((cat) => (
+                            <Link key={cat.id} href={`/catalogue?type=sur_mesure&category=${cat.id}`}
+                              className="flex items-center px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                              {cat.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                      {navCats.taille_standard.length > 0 && (
+                        <div className="py-2">
+                          <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taille standard</p>
+                          {navCats.taille_standard.map((cat) => (
+                            <Link key={cat.id} href={`/catalogue?type=taille_standard&category=${cat.id}`}
+                              className="flex items-center px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                              {cat.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="border-t border-slate-100 px-4 py-3 bg-slate-50">
                       <Link href="/catalogue" className="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
@@ -308,16 +308,24 @@ export default function Header() {
             <nav className="px-4 py-4 space-y-1">
               <Link href="/" className="block text-sm font-semibold py-2.5 text-slate-200 border-b border-sky-900">Accueil</Link>
               <div className="py-2 border-b border-sky-900">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Sur mesure</p>
-                {surMesureCategories.map((cat) => (
-                  <Link key={cat} href={`/catalogue?type=sur_mesure&category=${cat}`}
-                    className="block text-sm py-1.5 pl-3 text-slate-300">{CATEGORY_LABELS[cat]}</Link>
-                ))}
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-2">Taille standard</p>
-                {tailleStandardCategories.map((cat) => (
-                  <Link key={cat} href={`/catalogue?type=taille_standard&category=${cat}`}
-                    className="block text-sm py-1.5 pl-3 text-slate-300">{CATEGORY_LABELS[cat]}</Link>
-                ))}
+                {navCats.sur_mesure.length > 0 && (
+                  <>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Sur mesure</p>
+                    {navCats.sur_mesure.map((cat) => (
+                      <Link key={cat.id} href={`/catalogue?type=sur_mesure&category=${cat.id}`}
+                        className="block text-sm py-1.5 pl-3 text-slate-300">{cat.label}</Link>
+                    ))}
+                  </>
+                )}
+                {navCats.taille_standard.length > 0 && (
+                  <>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-2">Taille standard</p>
+                    {navCats.taille_standard.map((cat) => (
+                      <Link key={cat.id} href={`/catalogue?type=taille_standard&category=${cat.id}`}
+                        className="block text-sm py-1.5 pl-3 text-slate-300">{cat.label}</Link>
+                    ))}
+                  </>
+                )}
                 <Link href="/catalogue" className="block text-sm font-bold py-2 pl-3 text-blue-400">Tous les produits →</Link>
               </div>
               <Link href="/commande-rapide" className="flex items-center gap-2 text-sm font-semibold py-2.5 text-yellow-300 border-b border-sky-900">
