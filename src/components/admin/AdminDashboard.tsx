@@ -144,7 +144,7 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
       certificates:              p.certificates ?? [],
       restricted_to_price_lists: p.restricted_to_price_lists ?? [],
       vat_rate:                  p.vat_rate ?? 21,
-      production_code:           p.production_code ?? null,
+      production_code:           null,   // doit être unique — à renseigner manuellement après copie
       free_shipping:             p.free_shipping ?? false,
       free_shipping_threshold:   p.free_shipping_threshold ?? null,
       seo_title:                 p.seo_title ?? null,
