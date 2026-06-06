@@ -1826,18 +1826,35 @@ export default function PanierClient() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-bold text-slate-900">{item.product?.name || 'Produit'}</h3>
-                      {item.width_cm && item.height_cm && (() => {
-                        // Pour les produits taille_standard : trouver le label de la taille
+                      {(() => {
                         const sizes: any[] = item.product?.standard_sizes ?? []
-                        const matchedSize = sizes.find((s: any) =>
-                          s.width_cm === item.width_cm && s.height_cm === item.height_cm
-                        )
-                        const sizeLabel = matchedSize?.name || matchedSize?.label || null
-                        return (
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {sizeLabel ? `${sizeLabel} — ` : ''}{item.width_cm}×{item.height_cm} cm
-                          </p>
-                        )
+                        // Si dimensions présentes → afficher avec label éventuel
+                        if (item.width_cm && item.height_cm) {
+                          const matched = sizes.find((s: any) =>
+                            s.width_cm === item.width_cm && s.height_cm === item.height_cm
+                          )
+                          const label = matched?.name || matched?.label || null
+                          return (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {label ? `${label} — ` : ''}{item.width_cm}×{item.height_cm} cm
+                            </p>
+                          )
+                        }
+                        // Fallback : déduire la taille depuis le prix unitaire (anciens items en cache)
+                        if (sizes.length > 0) {
+                          const byPrice = sizes.find((s: any) => Math.abs((s.price ?? 0) - item.unit_price) < 0.01)
+                          if (byPrice) {
+                            const label = byPrice.name || byPrice.label || null
+                            return (
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {label ? `${label} — ` : ''}{byPrice.width_cm}×{byPrice.height_cm} cm
+                              </p>
+                            )
+                          }
+                          // En dernier recours : afficher "Taille standard"
+                          return <p className="text-xs text-slate-400 mt-0.5">Taille standard</p>
+                        }
+                        return null
                       })()}
                       {/* Finitions choisies */}
                       {(() => {
