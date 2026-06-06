@@ -542,13 +542,19 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
                 </Field>
               </div>
 
-              <Field label="Description">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Description de la page produit
+                </label>
+                <p className="text-[11px] text-slate-400 mb-2">
+                  Contenu HTML affiché aux clients sur la fiche produit. Indépendant du SEO.
+                </p>
                 <RichTextEditor
                   value={form.description}
                   onChange={val => set('description', val)}
-                  placeholder="Description du produit, matériaux, usages…"
+                  placeholder="Description commerciale : matériaux, usages, avantages…"
                 />
-              </Field>
+              </div>
 
               <Field label="Taux de TVA">
                 <div className="flex gap-2">
@@ -1258,25 +1264,6 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
                   </button>
                 </div>
 
-                {/* Suggestion de description (optionnelle) */}
-                {seoSuggestion?.description_suggestion && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
-                    <div className="flex-1">
-                      <p className="text-[11px] font-bold text-amber-700 mb-1">💡 Suggestion de description produit</p>
-                      <p className="text-xs text-amber-800 leading-relaxed">{seoSuggestion.description_suggestion}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setForm(f => ({ ...f, description: seoSuggestion.description_suggestion! }))
-                        setSeoSuggestion(null)
-                      }}
-                      className="flex-shrink-0 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg"
-                    >
-                      Appliquer
-                    </button>
-                  </div>
-                )}
-
                 {/* Aperçu Google */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Aperçu dans Google</p>
@@ -1311,13 +1298,16 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Meta description
+                      Meta description <span className="font-normal normal-case text-slate-400">(Google)</span>
                     </label>
                     <span className={`text-[11px] font-semibold ${descLen > 160 ? 'text-red-500' : descLen > 140 ? 'text-orange-500' : 'text-slate-400'}`}>
                       {descLen}/160
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mb-1.5">Texte affiché sous le titre dans les résultats Google. 140-160 caractères idéalement.</p>
+                  <p className="text-[11px] text-slate-400 mb-1.5">
+                    Texte court pour Google (140-160 car.). <strong className="text-slate-500">Indépendante de la description page produit.</strong>
+                    {!form.seo_description && <span className="text-orange-500"> Si vide, Google utilisera un extrait de la description page.</span>}
+                  </p>
                   <textarea
                     rows={3}
                     value={form.seo_description}
