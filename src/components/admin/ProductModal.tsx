@@ -211,6 +211,8 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [section, setSection] = useState<'general' | 'dimensions' | 'finitions' | 'delais' | 'images' | 'certificats' | 'seo'>('general')
+  const [generatingSeo, setGeneratingSeo] = useState(false)
+  const [seoSuggestion, setSeoSuggestion] = useState<{ description_suggestion?: string } | null>(null)
 
   const [uploadingMain, setUploadingMain] = useState(false)
   const [uploadingExtra, setUploadingExtra] = useState(false)
@@ -222,6 +224,53 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
   const [newCertName, setNewCertName] = useState('')
   const [newCertType, setNewCertType] = useState<'fire' | 'tech' | 'it'>('fire')
   const [showCertForm, setShowCertForm] = useState(false)
+
+  // ── Génération SEO par Claude ────────────────────────────────────────────────
+  async function generateSeo() {
+    setGeneratingSeo(true)
+    setSeoSuggestion(null)
+    try {
+      // Aplatir les groupes de finitions en liste de noms
+      const finitionNames = form.finition_groups.flatMap(g =>
+        g.options.map((o: any) => o.name || o.label || o).filter(Boolean)
+      )
+      const res = await fetch('/api/marketing/generate-seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:           form.name,
+          description:    form.description,
+          category:       form.category,
+          product_type:   form.product_type,
+          finitions:      finitionNames,
+          delai_options:  form.delai_options,
+          standard_sizes: form.standard_sizes,
+          min_width_cm:   form.min_width_cm,
+          max_width_cm:   form.max_width_cm,
+          min_height_cm:  form.min_height_cm,
+          max_height_cm:  form.max_height_cm,
+          price_per_m2:   form.price_per_m2,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Erreur')
+      // Pré-remplir les champs SEO (sans écraser ce que l'utilisateur a déjà)
+      setForm(f => ({
+        ...f,
+        seo_title:       data.seo_title       ?? f.seo_title,
+        seo_description: data.seo_description ?? f.seo_description,
+        seo_keywords:    data.seo_keywords    ?? f.seo_keywords,
+      }))
+      // Stocker la suggestion de description (optionnelle)
+      if (data.description_suggestion) {
+        setSeoSuggestion({ description_suggestion: data.description_suggestion })
+      }
+    } catch (e: any) {
+      alert(`Erreur génération SEO : ${e.message}`)
+    } finally {
+      setGeneratingSeo(false)
+    }
+  }
 
   const [priceLists, setPriceLists] = useState<any[]>([])
   const [visibleByAll, setVisibleByAll] = useState(true)
@@ -1181,6 +1230,53 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
             const descLen   = form.seo_description.length
             return (
               <div className="space-y-5">
+
+                {/* ── Bouton Générer avec l'IA ── */}
+                <div className="bg-gradient-to-r from-violet-50 to-blue-50 border border-violet-200 rounded-xl p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-violet-800">✨ Générer le SEO avec l'IA</p>
+                    <p className="text-[11px] text-violet-600 mt-0.5">
+                      Claude analyse le produit et génère titre, meta description et mots-clés optimisés pour Comink Liège.
+                    </p>
+                  </div>
+                  <button
+                    onClick={generateSeo}
+                    disabled={generatingSeo || !form.name}
+                    className="flex-shrink-0 flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors"
+                  >
+                    {generatingSeo ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Génération…
+                      </>
+                    ) : (
+                      <>✨ Générer</>
+                    )}
+                  </button>
+                </div>
+
+                {/* Suggestion de description (optionnelle) */}
+                {seoSuggestion?.description_suggestion && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
+                    <div className="flex-1">
+                      <p className="text-[11px] font-bold text-amber-700 mb-1">💡 Suggestion de description produit</p>
+                      <p className="text-xs text-amber-800 leading-relaxed">{seoSuggestion.description_suggestion}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setForm(f => ({ ...f, description: seoSuggestion.description_suggestion! }))
+                        setSeoSuggestion(null)
+                      }}
+                      className="flex-shrink-0 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 rounded-lg"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                )}
+
                 {/* Aperçu Google */}
                 <div className="bg-white border border-slate-200 rounded-xl p-4">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Aperçu dans Google</p>
