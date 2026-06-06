@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
@@ -19,6 +19,12 @@ export default function CatalogueClient({ initialProducts }: Props) {
   const [selectedType, setSelectedType] = useState(searchParams.get('type') || ALL)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || ALL)
   const [showFilters, setShowFilters] = useState(false)
+
+  // Sync filtres quand l'URL change (navigation depuis le menu, soft nav)
+  useEffect(() => {
+    setSelectedType(searchParams.get('type') || ALL)
+    setSelectedCategory(searchParams.get('category') || ALL)
+  }, [searchParams])
 
   const categories = useMemo(() => {
     const cats = new Set(initialProducts.map(p => p.category))
