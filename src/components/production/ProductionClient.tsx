@@ -188,17 +188,6 @@ export default function ProductionClient({ lines: initialLines, statuses, staff,
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <div className="bg-sky-950 text-white px-6 py-4 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <img src="https://media.base44.com/images/public/69b6df678c8f8fabdf29d048/3a7588cd1_logo_comink_png_f6b84109-9ae2-455d-a799-bce0af0abe08.png" alt="Comink" className="h-8 w-auto" />
-          <div className="w-px h-6 bg-sky-800" />
-          <span className="text-sm font-bold text-sky-200">Production</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <a href="/admin" className="text-xs text-sky-300 hover:text-white transition-colors">Administration</a>
-          <a href="/" className="text-xs text-sky-300 hover:text-white transition-colors">← Retour au site</a>
-        </div>
-      </div>
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
