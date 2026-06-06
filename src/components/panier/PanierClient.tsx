@@ -96,13 +96,13 @@ interface PdfAnalysis {
 }
 
 async function analyzePdfClientSide(file: File, maxPages = 50): Promise<PdfAnalysis> {
-  // CMYK hint depuis les 256 premiers KB (rapide, indépendant de PDF.js)
-  const cmykHint = await scanCmykHint(file)
-
   try {
     const pdfjsLib = await import('pdfjs-dist')
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
     const arrayBuffer = await file.arrayBuffer()
+
+    // CMYK scan sur le buffer déjà chargé (pas de 2e lecture fichier)
+    const cmykHint = await scanCmykHint(file, arrayBuffer)
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
     const PT_TO_MM = 0.352778
     const pageCount = pdf.numPages
@@ -147,7 +147,9 @@ async function analyzePdfClientSide(file: File, maxPages = 50): Promise<PdfAnaly
 
     return { pageCount, pages, previewDataUrl, cmykHint, thumbs }
   } catch {
-    return { pageCount: 1, pages: [], previewDataUrl: null, cmykHint, thumbs: {} }
+    // En cas d'erreur PDF.js, tenter le scan CMYK seul
+    const fallbackHint = await scanCmykHint(file).catch(() => 'unknown' as const)
+    return { pageCount: 1, pages: [], previewDataUrl: null, cmykHint: fallbackHint, thumbs: {} }
   }
 }
 
@@ -174,13 +176,27 @@ function checkDimensions(
   return 'error'
 }
 
-// ── Scan CMYK depuis les 256 premiers KB du PDF (rapide) ─────────────────────
-async function scanCmykHint(file: File): Promise<'cmyk' | 'rgb' | 'unknown'> {
+// ── Scan CMYK depuis les bytes bruts du PDF ───────────────────────────────────
+// Accepte un ArrayBuffer déjà chargé pour éviter une 2e lecture du fichier
+async function scanCmykHint(file: File, existingBuffer?: ArrayBuffer): Promise<'cmyk' | 'rgb' | 'unknown'> {
   try {
-    const chunk = await file.slice(0, 262144).arrayBuffer()
-    const text = new TextDecoder('latin1').decode(chunk)
-    if (/\/DeviceCMYK|DeviceCMYK/i.test(text)) return 'cmyk'
-    if (/\/DeviceRGB|\/CalRGB|sRGB/i.test(text)) return 'rgb'
+    const buffer = existingBuffer ?? await file.arrayBuffer()
+    // Décode en latin-1 : les bytes bruts (même compressés) restent cherchables
+    const text = new TextDecoder('latin1').decode(new Uint8Array(buffer))
+
+    // 1. Espaces colorimétriques déclarés en clair dans la structure PDF
+    if (/\/DeviceCMYK|\/CalCMYK/.test(text))          return 'cmyk'
+    if (/\/Separation|\/DeviceN/.test(text))           return 'cmyk' // couleurs spot = CMYK
+    if (/\/DeviceRGB|\/CalRGB/.test(text))             return 'rgb'
+
+    // 2. Signature texte des profils ICC embarqués (en clair dans les streams)
+    //    Header ICC offset+16 = color space : 'CMYK' ou 'RGB '
+    if (text.includes('CMYK'))  return 'cmyk'
+    if (text.includes('RGB '))  return 'rgb'   // 'RGB ' avec espace = header ICC
+
+    // 3. Mot-clé sRGB dans les métadonnées XMP (souvent en clair)
+    if (/sRGB|AdobeRGB/.test(text)) return 'rgb'
+
     return 'unknown'
   } catch { return 'unknown' }
 }
