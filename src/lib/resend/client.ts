@@ -2,6 +2,18 @@ import { Resend } from 'resend'
 
 export const resend = new Resend(process.env.RESEND_API_KEY)
 
+/**
+ * Envoie un email via Resend et lève une exception si l'API retourne une erreur.
+ * Le SDK Resend v2 ne throw pas — il retourne { data, error }.
+ */
+export async function sendEmail(params: Parameters<typeof resend.emails.send>[0]) {
+  const { data, error } = await resend.emails.send(params)
+  if (error) {
+    throw new Error(`Resend error (${(error as any).name ?? 'unknown'}): ${(error as any).message ?? JSON.stringify(error)}`)
+  }
+  return data
+}
+
 const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@comink.be'
 
 export async function sendOrderConfirmation(to: string, orderNumber: string, total: number) {

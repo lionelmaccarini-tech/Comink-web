@@ -106,6 +106,7 @@ export async function POST(
         finitions_summary: finitionsSummary.length ? finitionsSummary : null,
         sort_order:        idx,
         file_analysis:     file_analyses[idx] || null,
+        is_subcontracted:  item.product?.is_subcontracted ?? false,
       })
     }
 

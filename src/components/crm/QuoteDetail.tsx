@@ -34,6 +34,7 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
   const [activities, setActivities] = useState<any[]>([])
   const [loading,    setLoading]    = useState(true)
   const [sending,    setSending]    = useState(false)
+  const [sendMsg,    setSendMsg]    = useState<string | null>(null)
   const [sendingToClient, setSendingToClient] = useState(false)
   const [sentToClientMsg, setSentToClientMsg] = useState<string | null>(null)
   const [newNote,    setNewNote]    = useState('')
@@ -60,13 +61,25 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
 
   const send = async () => {
     setSending(true)
-    const res = await fetch(`/api/crm/quotes/${quoteId}/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sent_by: currentUser?.id }),
-    })
-    if (res.ok) reload()
-    setSending(false)
+    setSendMsg(null)
+    try {
+      const res = await fetch(`/api/crm/quotes/${quoteId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sent_by: currentUser?.id }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setSendMsg(`✅ Email envoyé à ${quote?.client_email}`)
+        reload()
+      } else {
+        setSendMsg(`❌ ${data.error || 'Erreur lors de l\'envoi'}`)
+      }
+    } catch {
+      setSendMsg('❌ Erreur réseau')
+    } finally {
+      setSending(false)
+    }
   }
 
   const markStage = async (stage: string) => {
@@ -174,6 +187,11 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
                 </button>
               </div>
             </div>
+            {sendMsg && (
+              <div className={`mt-2 text-xs px-3 py-2 rounded-lg border ${sendMsg.startsWith('✅') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                {sendMsg}
+              </div>
+            )}
 
             {/* Client info */}
             <div className="grid sm:grid-cols-2 gap-4 bg-slate-50 rounded-lg p-4">

@@ -111,12 +111,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 </body>
 </html>`
 
-    await resend.emails.send({
+    const emailResult = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'noreply@comink.be',
       to: quote.client_email,
       subject: `Comink — Devis #${quote.quote_number}`,
       html,
     })
+    if ((emailResult as any).error) {
+      const e = (emailResult as any).error
+      throw new Error(`Resend error (${e.name ?? 'unknown'}): ${e.message ?? JSON.stringify(e)}`)
+    }
 
     // Update status to 'sent' + pipeline to 'quoted'
     await supabase.from('quotes').update({
@@ -136,8 +140,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     return NextResponse.json({ success: true })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[crm/quotes/send POST]', err)
-    return NextResponse.json({ error: 'Erreur lors de l\'envoi' }, { status: 500 })
+    return NextResponse.json({ error: err?.message || 'Erreur lors de l\'envoi' }, { status: 500 })
   }
 }

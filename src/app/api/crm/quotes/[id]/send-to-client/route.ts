@@ -75,8 +75,8 @@ export async function POST(
     })
 
     return NextResponse.json({ success: true, public_token: publicToken })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[crm/quotes/send-to-client POST]', err)
-    return NextResponse.json({ error: 'Erreur lors de l\'envoi' }, { status: 500 })
+    return NextResponse.json({ error: err?.message || 'Erreur lors de l\'envoi' }, { status: 500 })
   }
 }

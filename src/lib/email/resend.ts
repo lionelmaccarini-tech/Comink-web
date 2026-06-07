@@ -9,6 +9,19 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@comink.be'
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://comink.be'
 
+/**
+ * Wrapper Resend qui lève une vraie exception si l'API retourne une erreur.
+ * Le SDK Resend v2 ne throw pas — il retourne { data, error }.
+ * Sans ce wrapper, les erreurs sont silencieuses et l'email paraît envoyé.
+ */
+async function sendEmail(params: Parameters<typeof resend.emails.send>[0]) {
+  const { data, error } = await resend.emails.send(params)
+  if (error) {
+    throw new Error(`Resend error (${error.name}): ${error.message}`)
+  }
+  return data
+}
+
 const LOGO_URL =
   'https://media.base44.com/images/public/69b6df678c8f8fabdf29d048/3a7588cd1_logo_comink_png_f6b84109-9ae2-455d-a799-bce0af0abe08.png'
 
@@ -144,7 +157,7 @@ export async function sendOrderConfirmationEmail(order: OrderConfirmationParams)
       Des questions ? Répondez à cet email ou appelez-nous au +32 4 233 01 38.
     </p>`
 
-  return resend.emails.send({
+  return sendEmail({
     from: FROM,
     to: order.client_email,
     subject: `Comink — Confirmation de commande #${order.order_number}`,
@@ -186,7 +199,7 @@ export async function sendQuoteToClientEmail(quote: QuoteToClientParams) {
       Si vous avez des questions ou souhaitez des modifications, répondez simplement à cet email.
     </p>`
 
-  return resend.emails.send({
+  return sendEmail({
     from: FROM,
     to: quote.client_email,
     subject: `Comink — Devis #${quote.quote_number}`,
@@ -227,7 +240,7 @@ export async function sendFileReadyEmail(line: FileReadyParams) {
       </a>
     </div>`
 
-  return resend.emails.send({
+  return sendEmail({
     from: FROM,
     to: line.client_email,
     subject: `Comink — Fichier validé pour la commande #${line.order_number}`,
@@ -295,7 +308,7 @@ export async function sendPaymentReminderEmail(order: PaymentReminderParams) {
       Pour toute question, contactez-nous à <a href="mailto:info@comink.be" style="color:#1e3a5f">info@comink.be</a>.
     </p>`
 
-  return resend.emails.send({
+  return sendEmail({
     from: FROM,
     to: order.client_email,
     subject: `Comink — Rappel de paiement — Commande #${order.order_number}`,

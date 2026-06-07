@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, company, phone, vat_number, role')
+      .select('id, full_name, email, company, phone, vat_number, billing_line1, billing_line2, billing_city, billing_postal_code, billing_country, role')
       .or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`)
       .in('role', ['user', 'admin', 'collaborateur', 'vendeur'])  // exclude producteur
       .order('full_name')
