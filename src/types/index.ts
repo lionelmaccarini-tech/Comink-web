@@ -76,6 +76,8 @@ export interface Product {
   finitions?: FinitionGroup[]
   delai_options?: DelaiOption[]
   sides_finitions?: SidesFinitions | null
+  // Accessoires liés
+  linked_accessory_ids?: string[]
   created_at: string
   updated_at: string
 }

@@ -2,7 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ShoppingCart, FileText, CheckCircle, Info, ChevronDown, ChevronUp } from 'lucide-react'
+import AccessoiresModal from './AccessoiresModal'
 
 // ── Belgian holidays ──────────────────────────────────────────────────────
 function getBelgianHolidays(year: number): Set<string> {
@@ -56,9 +58,13 @@ const SIDE_POS: Record<string, 'top'|'bottom'|'left'|'right'> = { haut:'top', ba
 const SIDE_ICON: Record<string, string> = { top:'↑', bottom:'↓', left:'←', right:'→' }
 
 // ── Component ─────────────────────────────────────────────────────────────
-interface Props { product: Product }
+interface Props {
+  product: Product
+  accessories?: Product[]
+}
 
-export default function ProduitClient({ product }: Props) {
+export default function ProduitClient({ product, accessories = [] }: Props) {
+  const router = useRouter()
   const delais: any[]       = (product as any).delai_options ?? []
   const sidesFinitions: any = (product as any).sides_finitions
   const finitionGroups      = normalizeFinitions((product as any).finitions ?? [])
@@ -70,6 +76,7 @@ export default function ProduitClient({ product }: Props) {
   const [height,        setHeight]        = useState(product.min_height_cm || 100)
   const [quantity,      setQuantity]      = useState(1)
   const [added,         setAdded]         = useState(false)
+  const [showAccessoires, setShowAccessoires] = useState(false)
   const [selectedDelai, setSelectedDelai] = useState<any>(delais[0] ?? null)
 
   // ── Finition groups state ──────────────────────────────────────────────
@@ -206,7 +213,12 @@ export default function ProduitClient({ product }: Props) {
   function handleAddToCart() {
     if (hasError) return
     addItem({ product_id: product.id, product, quantity, width_cm: isSurMesure ? width : selectedSize?.width_cm, height_cm: isSurMesure ? height : selectedSize?.height_cm, bleed_mm: (product as any).bleed_mm ?? 3, unit_price: unitPrice, total_price: totalPrice, selectedFinitions, selectedDelai, selectedSides } as any)
-    setAdded(true); setTimeout(() => setAdded(false), 2500)
+    if (accessories.length > 0) {
+      setShowAccessoires(true)
+    } else {
+      setAdded(true)
+      setTimeout(() => setAdded(false), 2500)
+    }
   }
 
   // ── Side helpers ──────────────────────────────────────────────────────
@@ -390,6 +402,7 @@ export default function ProduitClient({ product }: Props) {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-sky-50">
       {/* Breadcrumb */}
       <div className="bg-slate-50 border-b border-slate-100">
@@ -916,5 +929,22 @@ export default function ProduitClient({ product }: Props) {
         </div>
       </div>
     </div>
+
+    {/* Modal accessoires */}
+    {showAccessoires && accessories.length > 0 && (
+      <AccessoiresModal
+        accessories={accessories}
+        onClose={() => {
+          setShowAccessoires(false)
+          setAdded(true)
+          setTimeout(() => setAdded(false), 2500)
+        }}
+        onViewCart={() => {
+          setShowAccessoires(false)
+          router.push('/panier')
+        }}
+      />
+    )}
+    </>
   )
 }

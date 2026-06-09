@@ -106,6 +106,8 @@ interface ProductForm {
   seo_title: string
   seo_description: string
   seo_keywords: string
+  // Accessoires liés
+  linked_accessory_ids: string[]
 }
 
 function uid() { return crypto.randomUUID() }
@@ -148,6 +150,7 @@ const emptyForm = (): ProductForm => ({
   seo_title: '',
   seo_description: '',
   seo_keywords: '',
+  linked_accessory_ids: [],
   delai_options: [
     { id: uid(), label: 'Standard (5-7 jours ouvrables)', days: 7, surcharge_percent: 0 },
     { id: uid(), label: 'Express (2-3 jours ouvrables)', days: 3, surcharge_percent: 30 },
@@ -212,7 +215,8 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
   const [form, setForm] = useState<ProductForm>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [section, setSection] = useState<'general' | 'dimensions' | 'finitions' | 'delais' | 'images' | 'certificats' | 'seo'>('general')
+  const [section, setSection] = useState<'general' | 'dimensions' | 'finitions' | 'delais' | 'images' | 'certificats' | 'seo' | 'accessoires'>('general')
+  const [allAccessories, setAllAccessories] = useState<Array<{ id: string; name: string; image_url?: string; price_per_m2?: number; standard_sizes?: any[] }>>([])
   const [generatingSeo, setGeneratingSeo] = useState(false)
   const [seoSuggestion, setSeoSuggestion] = useState<{ description_suggestion?: string } | null>(null)
 
@@ -305,9 +309,10 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         finition_groups: normalizeFinitions(product.finitions ?? []),
         sides_finitions: product.sides_finitions ?? null,
         delai_options: product.delai_options?.length ? product.delai_options : emptyForm().delai_options,
-        seo_title:       (product as any).seo_title ?? '',
-        seo_description: (product as any).seo_description ?? '',
-        seo_keywords:    (product as any).seo_keywords ?? '',
+        seo_title:              (product as any).seo_title ?? '',
+        seo_description:        (product as any).seo_description ?? '',
+        seo_keywords:           (product as any).seo_keywords ?? '',
+        linked_accessory_ids:   (product as any).linked_accessory_ids ?? [],
       })
     }
   }, [product])
@@ -316,6 +321,13 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
     fetch('/api/admin/price-lists')
       .then(r => r.json())
       .then(d => setPriceLists(Array.isArray(d) ? d : []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/admin/products?category=accessoires&limit=200')
+      .then(r => r.json())
+      .then(d => setAllAccessories(Array.isArray(d) ? d : (d.products ?? [])))
       .catch(() => {})
   }, [])
 
@@ -429,9 +441,10 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         finitions: form.finition_groups,   // stored as `finitions` in DB
         sides_finitions: form.sides_finitions,
         delai_options: form.delai_options,
-        seo_title:       form.seo_title.trim() || null,
-        seo_description: form.seo_description.trim() || null,
-        seo_keywords:    form.seo_keywords.trim() || null,
+        seo_title:             form.seo_title.trim() || null,
+        seo_description:       form.seo_description.trim() || null,
+        seo_keywords:          form.seo_keywords.trim() || null,
+        linked_accessory_ids:  form.linked_accessory_ids,
       }
       const method = product?.id ? 'PUT' : 'POST'
       const res  = await fetch('/api/admin/products', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -448,13 +461,14 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
   const totalOptions = form.finition_groups.reduce((n, g) => n + g.options.length, 0)
 
   const tabs = [
-    { id: 'general',     label: 'Général' },
-    { id: 'dimensions',  label: form.product_type === 'sur_mesure' ? 'Sur mesure' : 'Tailles standard' },
-    { id: 'finitions',   label: `Finitions${totalOptions ? ` (${totalOptions})` : ''}` },
-    { id: 'delais',      label: `Délais${form.delai_options.length ? ` (${form.delai_options.length})` : ''}` },
-    { id: 'images',      label: `Images${form.image_url || form.images.length ? ` (${(form.image_url ? 1 : 0) + form.images.filter(Boolean).length})` : ''}` },
-    { id: 'certificats', label: `Certificats${form.certificates.length ? ` (${form.certificates.length})` : ''}` },
-    { id: 'seo',         label: `SEO${form.seo_title || form.seo_description ? ' ✓' : ''}` },
+    { id: 'general',      label: 'Général' },
+    { id: 'dimensions',   label: form.product_type === 'sur_mesure' ? 'Sur mesure' : 'Tailles standard' },
+    { id: 'finitions',    label: `Finitions${totalOptions ? ` (${totalOptions})` : ''}` },
+    { id: 'delais',       label: `Délais${form.delai_options.length ? ` (${form.delai_options.length})` : ''}` },
+    { id: 'images',       label: `Images${form.image_url || form.images.length ? ` (${(form.image_url ? 1 : 0) + form.images.filter(Boolean).length})` : ''}` },
+    { id: 'certificats',  label: `Certificats${form.certificates.length ? ` (${form.certificates.length})` : ''}` },
+    { id: 'accessoires',  label: `Accessoires${form.linked_accessory_ids.length ? ` (${form.linked_accessory_ids.length})` : ''}` },
+    { id: 'seo',          label: `SEO${form.seo_title || form.seo_description ? ' ✓' : ''}` },
   ] as const
 
   return (
@@ -1246,6 +1260,82 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
               )}
             </div>
           )}
+          {/* ── Accessoires liés ── */}
+          {section === 'accessoires' && (
+            <div className="space-y-4">
+              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-sky-800 mb-1">Accessoires suggérés au client</p>
+                <p className="text-xs text-sky-600">
+                  Ces accessoires seront proposés automatiquement dans un modal lorsque le client ajoute ce produit à son panier.
+                  Seuls les produits de la catégorie <strong>Accessoires</strong> peuvent être sélectionnés.
+                </p>
+              </div>
+
+              {allAccessories.length === 0 ? (
+                <div className="text-center py-10 text-slate-400">
+                  <p className="text-sm">Aucun produit de type <strong>Accessoire</strong> disponible.</p>
+                  <p className="text-xs mt-1">Créez d'abord des produits dans la catégorie "Accessoires".</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {allAccessories.map(acc => {
+                    const isLinked = form.linked_accessory_ids.includes(acc.id)
+                    const basePrice = acc.standard_sizes?.[0]?.price ?? acc.price_per_m2
+                    return (
+                      <div
+                        key={acc.id}
+                        onClick={() => set(
+                          'linked_accessory_ids',
+                          isLinked
+                            ? form.linked_accessory_ids.filter(id => id !== acc.id)
+                            : [...form.linked_accessory_ids, acc.id]
+                        )}
+                        className={`
+                          flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all
+                          ${isLinked ? 'border-sky-500 bg-sky-50' : 'border-slate-200 bg-white hover:border-slate-300'}
+                        `}
+                      >
+                        {/* Checkbox */}
+                        <div className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isLinked ? 'border-sky-500 bg-sky-500' : 'border-slate-300'}`}>
+                          {isLinked && (
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        {/* Miniature */}
+                        {acc.image_url && (
+                          <img src={acc.image_url} alt={acc.name} className="w-10 h-10 rounded-lg object-cover border border-slate-200 flex-shrink-0" />
+                        )}
+                        {/* Nom + prix */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 truncate">{acc.name}</p>
+                          {basePrice != null && (
+                            <p className="text-xs text-slate-500">
+                              {acc.price_per_m2 && !acc.standard_sizes?.length
+                                ? `${basePrice} €/m²`
+                                : `${basePrice} €`
+                              }
+                            </p>
+                          )}
+                        </div>
+                        <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${isLinked ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-400'}`}>
+                          {isLinked ? 'Lié' : 'Non lié'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {form.linked_accessory_ids.length > 0 && (
+                <p className="text-xs text-center text-slate-500 pt-2">
+                  {form.linked_accessory_ids.length} accessoire{form.linked_accessory_ids.length > 1 ? 's' : ''} lié{form.linked_accessory_ids.length > 1 ? 's' : ''} — ils seront proposés après ajout au panier
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ── SEO ── */}
           {section === 'seo' && (() => {
             const siteUrl   = process.env.NEXT_PUBLIC_SITE_URL || 'https://comink.be'

@@ -12,13 +12,22 @@ function stripUnknownColumn(payload: Record<string, any>, errorMsg: string): Rec
   return payload
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createServiceClient()
-    const { data, error } = await supabase
+    const { searchParams } = new URL(req.url)
+    const category = searchParams.get('category')
+    const limit    = parseInt(searchParams.get('limit') ?? '500') || 500
+
+    let query = supabase
       .from('products')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('name', { ascending: true })
+      .limit(limit)
+
+    if (category) query = query.eq('category', category)
+
+    const { data, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   } catch (e: any) {

@@ -84,6 +84,20 @@ export default async function ProduitPage({ params }: Props) {
       notFound()
     }
   }
+  // ── Accessoires liés ────────────────────────────────────────────────────────
+  let accessories: Product[] = []
+  const accessoryIds: string[] = (product as any).linked_accessory_ids ?? []
+  if (accessoryIds.length > 0) {
+    try {
+      const supabase = await createServiceClient()
+      const { data } = await supabase
+        .from('products')
+        .select('id, name, description, category, product_type, image_url, images, price_per_m2, standard_sizes, finitions, delai_options, available, vat_rate')
+        .in('id', accessoryIds)
+        .eq('available', true)
+      accessories = (data ?? []) as Product[]
+    } catch {}
+  }
   // ─────────────────────────────────────────────────────────────────────────────
 
   // JSON-LD structured data (Product schema)
@@ -119,7 +133,7 @@ export default async function ProduitPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <ProduitClient product={product} />
+      <ProduitClient product={product} accessories={accessories} />
     </>
   )
 }
