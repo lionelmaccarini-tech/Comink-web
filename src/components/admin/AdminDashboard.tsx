@@ -530,52 +530,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             </div>
 
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="text-base font-bold text-slate-800 mb-2">Migration SQL</h3>
-              <p className="text-xs text-slate-500 mb-4">Exécutez ces migrations dans Supabase SQL Editor si les colonnes/tables correspondantes n'existent pas encore. Les requêtes utilisent <code className="bg-slate-100 px-1 rounded">IF NOT EXISTS</code> — sans risque si déjà fait.</p>
-              <div className="space-y-3">
-                {[
-                  {
-                    title: 'Migration 002 — Champs produits (finitions, délais)',
-                    sql: `ALTER TABLE public.products\n  ADD COLUMN IF NOT EXISTS finitions jsonb DEFAULT '[]',\n  ADD COLUMN IF NOT EXISTS delai_options jsonb DEFAULT '[]';`,
-                  },
-                  {
-                    title: 'Migration 003 — Comptes clients',
-                    sql: `-- Voir fichier supabase/migrations/003_client_accounts.sql`,
-                  },
-                  {
-                    title: 'Migration 007 — Catégories',
-                    sql: `CREATE TABLE IF NOT EXISTS public.categories (\n  id text PRIMARY KEY,\n  label text NOT NULL,\n  display_order integer NOT NULL DEFAULT 0,\n  active boolean NOT NULL DEFAULT true,\n  created_at timestamptz DEFAULT now()\n);\nALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "Service role full access on categories" ON public.categories\n  FOR ALL USING (true) WITH CHECK (true);\nINSERT INTO public.categories (id, label, display_order) VALUES\n  ('banderoles','Banderoles',1),('roll_up','Roll-up',2),\n  ('drapeaux','Drapeaux',3),('adhesifs','Adhésifs',4),\n  ('toiles','Toiles',5),('baches','Bâches',6),\n  ('panneaux','Panneaux',7),('textile','Textile',8),\n  ('papier','Papier',9),('accessoires','Accessoires',10),\n  ('supports_evenementiels','Supports évènementiels',11),\n  ('vinyle_autocollant','Vinyle autocollant',12),\n  ('autre','Autre',13)\nON CONFLICT (id) DO NOTHING;`,
-                  },
-                  {
-                    title: 'Migration 012 — Code production sur les produits',
-                    sql: `ALTER TABLE public.products\n  ADD COLUMN IF NOT EXISTS production_code text;\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_products_production_code\n  ON public.products (production_code)\n  WHERE production_code IS NOT NULL;`,
-                  },
-                  {
-                    title: 'Migration 013 — Finitions et délai sur les lignes de production ⚠️ REQUIS',
-                    sql: `ALTER TABLE public.production_lines\n  ADD COLUMN IF NOT EXISTS finitions_summary jsonb DEFAULT '[]',\n  ADD COLUMN IF NOT EXISTS delai_label        text;`,
-                  },
-                  {
-                    title: 'Migration 014 — Code production sur les lignes de production',
-                    sql: `ALTER TABLE public.production_lines\n  ADD COLUMN IF NOT EXISTS production_code text;`,
-                  },
-                  {
-                    title: 'Migration 015 — Adresse de facturation et TVA sur le profil client ⚠️ REQUIS',
-                    sql: `ALTER TABLE public.profiles\n  ADD COLUMN IF NOT EXISTS billing_line1       text,\n  ADD COLUMN IF NOT EXISTS billing_line2       text,\n  ADD COLUMN IF NOT EXISTS billing_city        text,\n  ADD COLUMN IF NOT EXISTS billing_postal_code text,\n  ADD COLUMN IF NOT EXISTS billing_country     text DEFAULT 'BE',\n  ADD COLUMN IF NOT EXISTS vat_number          text,\n  ADD COLUMN IF NOT EXISTS vat_country         text;`,
-                  },
-                  {
-                    title: 'Migration 016 — Expiration des fichiers sur les commandes ⚠️ REQUIS (migration 016)',
-                    sql: `ALTER TABLE public.orders\n  ADD COLUMN IF NOT EXISTS files_expire_at timestamptz,\n  ADD COLUMN IF NOT EXISTS files_deleted_at timestamptz;`,
-                  },
-                ].map(m => (
-                  <div key={m.title} className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p className="text-xs font-bold text-slate-600 mb-2">{m.title}</p>
-                    <pre className="text-[11px] text-slate-500 font-mono whitespace-pre-wrap bg-white border border-slate-200 rounded-lg p-3 overflow-auto">{m.sql}</pre>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
               <h3 className="text-base font-bold text-slate-800 mb-2">Compte admin</h3>
               <p className="text-sm text-slate-500">Connecté en tant que <strong className="text-slate-700">{userEmail}</strong></p>
               <p className="text-xs text-slate-400 mt-2">Pour ajouter d'autres admins, utilisez l'onglet Collaborateurs et attribuez le rôle "Admin".</p>
