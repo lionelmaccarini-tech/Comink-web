@@ -3,7 +3,12 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 /** Strip one unknown column from payload based on Supabase error message */
 function stripUnknownColumn(payload: Record<string, any>, errorMsg: string): Record<string, any> {
-  const match = errorMsg.match(/column "?([a-z_]+)"? of relation/)
+  // PostgreSQL format: column "linked_accessory_ids" of relation
+  let match = errorMsg.match(/column "?([a-z_]+)"? of relation/)
+  // PostgREST schema-cache format: Could not find the 'linked_accessory_ids' column of 'products'
+  if (!match) match = errorMsg.match(/find the '([a-z_]+)' column/)
+  // Generic: unknown column 'xxx'
+  if (!match) match = errorMsg.match(/unknown column '([a-z_]+)'/)
   if (match) {
     const col = match[1]
     const { [col]: _, ...rest } = payload
