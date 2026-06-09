@@ -201,6 +201,9 @@ function fmtSuppl(priceType: string, amount: number): string {
 export default function CommandeRapideClient({ products }: { products: ProductInfo[] }) {
   const { addItem } = useCart()
   const fileRef = useRef<HTMLInputElement>(null)
+  // Extra products injected from Angelo preload (products from quote not necessarily in available list)
+  const [extraProducts, setExtraProducts] = useState<ProductInfo[]>([])
+
   const [rows, setRows] = useState<ProductRow[]>(() => {
     // Lire les lignes pré-chargées par Angelo (si présentes)
     if (typeof window !== 'undefined') {
@@ -210,36 +213,68 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
           localStorage.removeItem('comink_angelo_preload')
           const items = JSON.parse(raw) as Record<string, unknown>[]
           if (Array.isArray(items) && items.length > 0) {
+            // Collect products embedded in preload that are not already in the products prop
+            const extra: ProductInfo[] = []
             const mapped: ProductRow[] = items.map((item) => {
               const pid = (item.product_id ?? '') as string
               const product = item.product as Record<string, unknown> | undefined
-              const finitionGroups = normalizeFinitions((product?.finitions as any[]) ?? [])
-              const delais: any[] = (product?.delai_options as any[]) ?? []
-              const sidesFinitions = product?.sides_finitions as any
 
-              const selectedFinitions: Record<string, string | string[]> = {}
-              finitionGroups.forEach((g: any) => {
-                if (g.display_type === 'select') {
-                  selectedFinitions[g.id] = g.options.find((o: any) => o.default_selected)?.id ?? ''
-                } else {
-                  selectedFinitions[g.id] = g.options.filter((o: any) => o.default_selected).map((o: any) => o.id)
-                }
-              })
-              const selectedDelai = delais.length > 0
-                ? ([...delais].sort((a: any, b: any) => a.days - b.days)[0] as ProductRow['selectedDelai'])
-                : null
-              const selectedSides: Record<string, string[]> = {}
-              if (sidesFinitions?.enabled) {
-                sidesFinitions.sides?.forEach((s: any) => { selectedSides[s.id] = [] })
+              // Add embedded product to extra list if not already available
+              if (pid && product && !products.find(p => p.id === pid)) {
+                extra.push({
+                  id:             pid,
+                  name:           (product.name as string) || 'Produit',
+                  category:       (product.category as string) || '',
+                  product_type:   ((product.product_type as string) || 'sur_mesure') as 'sur_mesure' | 'taille_standard',
+                  price_per_m2:   product.price_per_m2 as number | undefined,
+                  standard_sizes: product.standard_sizes as ProductInfo['standard_sizes'],
+                  finitions:      product.finitions as any[],
+                  delai_options:  product.delai_options as any[],
+                  sides_finitions:product.sides_finitions as any,
+                  available:      true,
+                })
               }
 
-              const row: ProductRow = {
+              // Use finitions/délai/sides from the quote item directly (preserves the actual order config)
+              // Fall back to product defaults if not present
+              let selectedFinitions = (item.selectedFinitions as Record<string, string | string[]> | null) ?? null
+              let selectedDelai     = (item.selectedDelai as any) ?? null
+              let selectedSides     = (item.selectedSides as Record<string, string[]> | null) ?? null
+
+              if (!selectedFinitions || Object.keys(selectedFinitions).length === 0) {
+                const finitionGroups = normalizeFinitions((product?.finitions as any[]) ?? [])
+                const computed: Record<string, string | string[]> = {}
+                finitionGroups.forEach((g: any) => {
+                  if (g.display_type === 'select') {
+                    computed[g.id] = g.options.find((o: any) => o.default_selected)?.id ?? ''
+                  } else {
+                    computed[g.id] = g.options.filter((o: any) => o.default_selected).map((o: any) => o.id)
+                  }
+                })
+                selectedFinitions = computed
+              }
+              if (!selectedDelai) {
+                const delais: any[] = (product?.delai_options as any[]) ?? []
+                selectedDelai = delais.length > 0
+                  ? ([...delais].sort((a: any, b: any) => a.days - b.days)[0])
+                  : null
+              }
+              if (!selectedSides) {
+                const sidesFinitions = product?.sides_finitions as any
+                const computed: Record<string, string[]> = {}
+                if (sidesFinitions?.enabled) {
+                  sidesFinitions.sides?.forEach((s: any) => { computed[s.id] = [] })
+                }
+                selectedSides = computed
+              }
+
+              return {
                 id:               rowId(),
                 product_id:       pid,
                 width_cm:         item.width_cm != null ? Number(item.width_cm) : '',
                 height_cm:        item.height_cm != null ? Number(item.height_cm) : '',
                 quantity:         Number(item.quantity) || 1,
-                expanded:         false,
+                expanded:         true,  // ouvrir le panel config pour que les finitions soient visibles
                 selectedFinitions,
                 selectedDelai,
                 selectedSides,
@@ -248,8 +283,11 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                 batNote:          '',
                 forceValidate:    false,
               }
-              return row
             })
+            // Schedule extra products injection after render
+            if (extra.length > 0) {
+              setTimeout(() => setExtraProducts(extra), 0)
+            }
             return mapped
           }
         }
@@ -263,13 +301,14 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
   const [addedAll, setAddedAll] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const surMesureProducts = products.filter(p => p.product_type === 'sur_mesure')
-  const standardProducts  = products.filter(p => p.product_type === 'taille_standard')
+  const allProducts = [...products, ...extraProducts.filter(ep => !products.find(p => p.id === ep.id))]
+  const surMesureProducts = allProducts.filter(p => p.product_type === 'sur_mesure')
+  const standardProducts  = allProducts.filter(p => p.product_type === 'taille_standard')
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   function getProduct(id: string): ProductInfo | undefined {
-    return products.find(p => p.id === id)
+    return products.find(p => p.id === id) ?? extraProducts.find(p => p.id === id)
   }
 
   // ── Row manipulation ──────────────────────────────────────────────────────

@@ -427,7 +427,7 @@ async function runTool(
     if (productIds.length > 0) {
       const { data: prods } = await supabase
         .from('products')
-        .select('id, name, category, vat_rate, price_per_m2, price_flat, finitions, delai_options, sides_finitions, standard_sizes, image_url, bleed_mm, min_width_cm, min_height_cm')
+        .select('id, name, category, product_type, vat_rate, price_per_m2, price_flat, finitions, delai_options, sides_finitions, standard_sizes, image_url, bleed_mm, min_width_cm, min_height_cm')
         .in('id', productIds)
       if (prods) for (const p of prods) productMap[p.id] = p as Record<string, unknown>
     }
@@ -684,14 +684,16 @@ export async function POST(req: NextRequest) {
                     const parts = result.slice('__COMMANDE_RAPIDE__:'.length).split(':')
                     const encoded = parts[0]
                     const summary = parts.slice(1).join(':')
+                    let itemCount = 0
                     try {
                       const items = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'))
+                      itemCount = Array.isArray(items) ? items.length : 0
                       send(JSON.stringify({ type: 'commande_rapide', items, summary }))
                     } catch {}
                     return {
                       type: 'tool_result' as const,
                       tool_use_id: tu.id,
-                      content: `Commande rapide préparée avec ${(tu.input.items as unknown[])?.length ?? 0} articles. ${tu.input.summary ?? ''}`,
+                      content: `Devis accepté. Commande rapide préparée avec ${itemCount} article${itemCount > 1 ? 's' : ''}. ${summary}`,
                     }
                   }
 
