@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Package, Clock, CheckCircle, Truck, User, LogOut, FileText, ShoppingCart, Trash2, AlertTriangle, Pencil, Plus, Star, ChevronDown, ChevronUp } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Package, Clock, CheckCircle, Truck, User, LogOut, FileText, ShoppingCart, Trash2, AlertTriangle, Pencil, Plus, Star, ChevronDown, ChevronUp, Printer, X, ArrowLeft } from 'lucide-react'
 import { formatDate, formatPrice, isBelgianVAT, isIntraCommunityVAT, isValidVAT } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/hooks/useCart'
@@ -169,11 +169,17 @@ interface QuoteItem {
   id: string
   quote_number: string
   reference?: string
-  cart_items: any[]
+  items: any[]
+  subtotal?: number
+  tax?: number
   total: number
+  vat_number?: string
   status: string
   created_at: string
-  expires_at?: string
+  valid_until?: string
+  delivery_method?: 'pickup' | 'parcel' | 'express' | null
+  delivery_cost?: number | null
+  delivery_address?: string | null
 }
 
 interface Props {
@@ -185,14 +191,240 @@ interface Props {
 
 const COUNTRIES = [['BE','Belgique'],['FR','France'],['NL','Pays-Bas'],['LU','Luxembourg'],['DE','Allemagne']] as const
 
+// ─── Composant modale détail devis ────────────────────────────────────────────
+
+const DELIVERY_LABELS: Record<string, string> = {
+  pickup:  'Enlèvement atelier',
+  parcel:  'Expédition colis',
+  express: 'Livraison express',
+}
+
+function QuoteDetailModal({
+  quote, onClose, onRestoreCart, userName, userEmail,
+}: {
+  quote: QuoteItem
+  onClose: () => void
+  onRestoreCart: () => void
+  userName: string
+  userEmail: string
+}) {
+  const items: any[] = Array.isArray(quote.items) ? quote.items : []
+  const deliveryCost = quote.delivery_cost ?? 0
+  const subtotal = quote.subtotal ?? items.reduce((s, i) => s + (i.total ?? 0), 0)
+  const tax = quote.tax ?? Math.round((subtotal + deliveryCost) * 0.21 * 100) / 100
+  const total = quote.total ?? (subtotal + deliveryCost + tax)
+  const createdAt = new Date(quote.created_at).toLocaleDateString('fr-BE', { day: '2-digit', month: 'long', year: 'numeric' })
+  const validUntil = quote.valid_until ? new Date(quote.valid_until).toLocaleDateString('fr-BE', { day: '2-digit', month: 'long', year: 'numeric' }) : null
+
+  const handlePrint = () => {
+    const printContent = document.getElementById('quote-print-area')
+    if (!printContent) return
+    const w = window.open('', '_blank')
+    if (!w) return
+    w.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <title>Devis ${quote.quote_number}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #1e293b; padding: 32px; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; border-bottom: 2px solid #2563eb; padding-bottom: 20px; }
+        .logo { font-size: 22px; font-weight: 900; color: #2563eb; letter-spacing: -1px; }
+        .company-info { font-size: 10px; color: #64748b; text-align: right; line-height: 1.6; }
+        .quote-title { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+        .meta { color: #64748b; font-size: 11px; margin-bottom: 24px; }
+        .meta span { margin-right: 20px; }
+        .client-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; }
+        .client-box h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        thead tr { background: #f1f5f9; }
+        th { padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+        td { padding: 10px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
+        .text-right { text-align: right; }
+        .totals { margin-left: auto; width: 240px; }
+        .totals tr td { padding: 4px 10px; }
+        .totals .total-row td { font-weight: 900; font-size: 13px; color: #2563eb; border-top: 2px solid #e2e8f0; padding-top: 8px; }
+        .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
+      </style>
+    </head><body>${printContent.innerHTML}</body></html>`)
+    w.document.close()
+    w.focus()
+    setTimeout(() => { w.print(); w.close() }, 300)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm overflow-y-auto py-8 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl">
+        {/* Header modale */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-700">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <h2 className="font-bold text-slate-900">Devis {quote.quote_number}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Printer className="w-4 h-4" /> Imprimer / PDF
+            </button>
+            <button
+              onClick={onRestoreCart}
+              className="flex items-center gap-1.5 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <ShoppingCart className="w-4 h-4" /> Valider le devis et mettre dans le panier
+            </button>
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Zone imprimable */}
+        <div id="quote-print-area" className="p-6">
+          {/* En-tête document */}
+          <div className="header flex justify-between items-start mb-8 pb-5 border-b-2 border-blue-600">
+            <div>
+              <div className="text-2xl font-black text-blue-600 tracking-tight mb-1">COMINK</div>
+              <div className="text-[11px] text-slate-500 leading-relaxed">
+                Rue de Bruxelles 174H · 4340 Awans<br/>
+                +32 4 233 01 38 · info@comink.be<br/>
+                TVA : BE0535 752 576
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold text-slate-800">DEVIS</div>
+              <div className="text-sm font-semibold text-blue-600">{quote.quote_number}</div>
+              <div className="text-[11px] text-slate-400 mt-1">
+                <div>Émis le {createdAt}</div>
+                {validUntil && <div>Valide jusqu'au {validUntil}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Info client */}
+          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 mb-6">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Destinataire</p>
+            <p className="text-sm font-semibold text-slate-800">{userName}</p>
+            <p className="text-xs text-slate-500">{userEmail}</p>
+            {quote.vat_number && <p className="text-xs text-slate-500 mt-0.5">TVA : {quote.vat_number}</p>}
+            {quote.reference && <p className="text-xs text-slate-500 mt-0.5">Référence : {quote.reference}</p>}
+          </div>
+
+          {/* Tableau des articles */}
+          <div className="overflow-x-auto mb-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 border-y border-slate-200">
+                  <th className="text-left px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Désignation</th>
+                  <th className="text-center px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Format</th>
+                  <th className="text-center px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Qté</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">P.U. HT</th>
+                  <th className="text-right px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total HT</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item: any, i: number) => {
+                  const qty       = item.quantity ?? 1
+                  const unitPrice = item.unit_price || item.unit_price_ht || ((item.total ?? 0) / Math.max(qty, 1))
+                  const widthCm   = item.width_cm ?? item.width
+                  const heightCm  = item.height_cm ?? item.height
+                  return (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-3 py-3 font-medium text-slate-800">
+                        {item.product_name ?? item.name ?? 'Article'}
+                        {item.finitions_label && (
+                          <div className="text-[11px] text-blue-600/70 mt-0.5">{item.finitions_label}</div>
+                        )}
+                        {!item.finitions_label && item.options && Object.keys(item.options).length > 0 && (
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {Object.entries(item.options).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-center text-slate-500 text-xs">
+                        {widthCm && heightCm ? `${widthCm} × ${heightCm} cm` : '—'}
+                      </td>
+                      <td className="px-3 py-3 text-center font-semibold text-slate-700">{item.quantity ?? 1}</td>
+                      <td className="px-3 py-3 text-right text-slate-700">{formatPrice(unitPrice)}</td>
+                      <td className="px-3 py-3 text-right font-semibold text-slate-800">{formatPrice(item.total ?? item.total_price ?? 0)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Ligne livraison dans tableau si applicable */}
+          {quote.delivery_method && (
+            <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-slate-700">
+                <Truck className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span className="font-semibold">
+                  {DELIVERY_LABELS[quote.delivery_method] ?? quote.delivery_method}
+                </span>
+                {quote.delivery_address && (
+                  <span className="text-slate-400 text-xs">· {quote.delivery_address}</span>
+                )}
+              </div>
+              <span className="text-sm font-semibold text-slate-700">
+                {deliveryCost > 0 ? `${formatPrice(deliveryCost)} HT` : 'Gratuit'}
+              </span>
+            </div>
+          )}
+
+          {/* Totaux */}
+          <div className="flex justify-end mb-8">
+            <div className="w-64 space-y-1.5">
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>Sous-total articles HT</span>
+                <span className="font-semibold">{formatPrice(subtotal)}</span>
+              </div>
+              {deliveryCost > 0 && (
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Frais de livraison HT</span>
+                  <span className="font-semibold">{formatPrice(deliveryCost)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>TVA 21%</span>
+                <span className="font-semibold">{formatPrice(tax)}</span>
+              </div>
+              <div className="flex justify-between text-base font-black text-blue-600 border-t border-slate-200 pt-2 mt-2">
+                <span>Total TTC</span>
+                <span>{formatPrice(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pied de page */}
+          <div className="border-t border-slate-100 pt-4 text-[11px] text-slate-400 text-center">
+            Comink SRL · Rue de Bruxelles 174H · 4340 Awans · BE0535 752 576 · www.comink.be
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CompteClient({ user, profile, orders, quotes: initialQuotes }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { clearCart, addItem } = useCart()
-  const [tab, setTab] = useState<'commandes' | 'devis' | 'factures' | 'profil'>('commandes')
+  const [tab, setTab] = useState<'commandes' | 'devis' | 'factures' | 'profil'>(
+    (searchParams.get('tab') as any) || 'commandes'
+  )
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
   const [vatNumber, setVatNumber] = useState<string>(profile?.vat_number ?? '')
   const [savingVat, setSavingVat] = useState(false)
   const [vatSaved, setVatSaved] = useState(false)
+
+  // Données personnelles optionnelles
+  const [gender,     setGender]     = useState<string>((profile as any)?.gender     ?? '')
+  const [birthYear,  setBirthYear]  = useState<string>((profile as any)?.birth_year ? String((profile as any).birth_year) : '')
+  const [savingDemo, setSavingDemo] = useState(false)
+  const [demoSaved,  setDemoSaved]  = useState(false)
 
   // Adresse de facturation
   const [billingLine1,   setBillingLine1]   = useState<string>((profile as any)?.billing_line1   ?? '')
@@ -221,6 +453,7 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
 
   const [quotes, setQuotes] = useState<QuoteItem[]>(initialQuotes)
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null)
+  const [selectedQuote, setSelectedQuote] = useState<QuoteItem | null>(null)
 
   async function loadShippingAddrs() {
     const supabase = createClient()
@@ -324,6 +557,22 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
     }
   }
 
+  async function handleSaveDemographics() {
+    setSavingDemo(true)
+    try {
+      const supabase = createClient()
+      const yr = birthYear ? parseInt(birthYear, 10) : null
+      await supabase.from('profiles').update({
+        gender:     gender     || null,
+        birth_year: (yr && yr >= 1920 && yr <= 2015) ? yr : null,
+      }).eq('id', user.id)
+      setDemoSaved(true)
+      setTimeout(() => setDemoSaved(false), 2500)
+    } finally {
+      setSavingDemo(false)
+    }
+  }
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -333,8 +582,15 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
 
   const restoreCart = (quote: QuoteItem) => {
     clearCart()
-    const items: any[] = Array.isArray(quote.cart_items) ? quote.cart_items : []
-    items.forEach(item => addItem(item))
+    const cartItems: any[] = Array.isArray(quote.items) ? quote.items : []
+    cartItems.forEach(item => addItem({
+      product_id:  item.product_id ?? '',
+      quantity:    item.quantity ?? 1,
+      unit_price:  item.unit_price ?? 0,
+      total_price: item.total ?? item.total_price ?? 0,
+      width_cm:    item.width ?? item.width_cm,
+      height_cm:   item.height ?? item.height_cm,
+    }))
     router.push('/panier')
   }
 
@@ -350,7 +606,7 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
   }
 
   const isExpired = (q: QuoteItem) =>
-    q.expires_at ? new Date(q.expires_at) < new Date() : false
+    q.valid_until ? new Date(q.valid_until) < new Date() : false
 
   return (
     <div className="min-h-screen bg-sky-50">
@@ -455,9 +711,12 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
               quotes.map(quote => {
                 const statusKey = isExpired(quote) ? 'expired' : (quote.status || 'draft')
                 const cfg = QUOTE_STATUS_CONFIG[statusKey] || QUOTE_STATUS_CONFIG.draft
-                const itemCount = Array.isArray(quote.cart_items) ? quote.cart_items.length : 0
+                const itemCount = Array.isArray(quote.items) ? quote.items.length : 0
                 return (
-                  <div key={quote.id} className="bg-white rounded-xl border border-slate-200 p-5">
+                  <div key={quote.id}
+                    className="bg-white rounded-xl border border-slate-200 p-5 hover:border-blue-200 transition-colors cursor-pointer"
+                    onClick={() => setSelectedQuote(quote)}
+                  >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-1 flex-wrap">
@@ -471,7 +730,7 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                         </div>
                         <p className="text-xs text-slate-400">
                           Créé le {formatDate(quote.created_at)}
-                          {quote.expires_at && ` · Valide jusqu'au ${formatDate(quote.expires_at)}`}
+                          {quote.valid_until && ` · Valide jusqu'au ${formatDate(quote.valid_until)}`}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">{itemCount} article{itemCount > 1 ? 's' : ''}</p>
                         {isExpired(quote) && (
@@ -482,12 +741,18 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                       </div>
                       <div className="flex flex-col items-end gap-3">
                         <p className="font-extrabold text-blue-600 text-lg">{formatPrice(quote.total)}</p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => setSelectedQuote(quote)}
+                            className="flex items-center gap-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> Voir le détail
+                          </button>
                           <button
                             onClick={() => restoreCart(quote)}
                             className="flex items-center gap-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
                           >
-                            <ShoppingCart className="w-3.5 h-3.5" /> Remettre en panier
+                            <ShoppingCart className="w-3.5 h-3.5" /> Valider le devis et mettre dans le panier
                           </button>
                           <button
                             onClick={() => deleteQuote(quote.id)}
@@ -505,6 +770,17 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
               })
             )}
           </div>
+        )}
+
+        {/* ── MODALE DÉTAIL DEVIS ── */}
+        {selectedQuote && (
+          <QuoteDetailModal
+            quote={selectedQuote}
+            onClose={() => setSelectedQuote(null)}
+            onRestoreCart={() => { setSelectedQuote(null); restoreCart(selectedQuote) }}
+            userName={profile?.full_name || user.email}
+            userEmail={user.email}
+          />
         )}
 
         {/* ── FACTURES ── */}
@@ -550,6 +826,53 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                     <AlertTriangle className="w-3 h-3" /> Format non reconnu (ex : BE0123456789 ou FR12345678901)
                   </p>
                 )}
+              </div>
+            </div>
+
+            {/* Données personnelles optionnelles */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="font-bold text-slate-900 mb-1 flex items-center gap-2 text-sm">
+                Données personnelles optionnelles
+              </h3>
+              <p className="text-xs text-slate-400 mb-4">
+                Ces informations sont facultatives et restent confidentielles. Elles nous aident à mieux adapter nos services.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Genre</label>
+                  <select
+                    value={gender}
+                    onChange={e => setGender(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— Préfère ne pas préciser —</option>
+                    <option value="M">Homme</option>
+                    <option value="F">Femme</option>
+                    <option value="NB">Non-binaire</option>
+                    <option value="NS">Préfère ne pas préciser</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Année de naissance</label>
+                  <input
+                    type="number"
+                    value={birthYear}
+                    onChange={e => setBirthYear(e.target.value)}
+                    placeholder="ex: 1985"
+                    min={1920}
+                    max={2005}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleSaveDemographics}
+                  disabled={savingDemo}
+                  className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                >
+                  {demoSaved ? '✓ Enregistré' : savingDemo ? '…' : 'Sauvegarder'}
+                </button>
               </div>
             </div>
 

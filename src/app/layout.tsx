@@ -9,6 +9,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { createServiceClient } from '@/lib/supabase/server'
 import AngeloChatClient from '@/components/chat/AngeloChatClient'
 import FloatingSidebar from '@/components/ui/FloatingSidebar'
+import AnalyticsTracker from '@/components/analytics/AnalyticsTracker'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main className="flex-1">{children}</main>
             <Footer />
             <AngeloChatClient />
+            <AnalyticsTracker />
           </Toaster>
 
           {gaId && (

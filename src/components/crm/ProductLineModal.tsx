@@ -27,7 +27,7 @@ interface DelaiOption {
   id: string
   days: number
   label: string
-  price_supplement: number
+  surcharge_percent: number
   is_express: boolean
 }
 
@@ -124,8 +124,8 @@ export default function ProductLineModal({ product, onConfirm, onClose }: Props)
       }
     }
 
-    // Délai supplement
-    if (selDelai?.price_supplement) base += selDelai.price_supplement
+    // Délai supplement — % appliqué sur le prix de base (avant finitions)
+    if (selDelai?.surcharge_percent) base += base * selDelai.surcharge_percent / 100
 
     return Math.round(base * 100) / 100
   })()
@@ -212,17 +212,21 @@ export default function ProductLineModal({ product, onConfirm, onClose }: Props)
   const handleConfirm = () => {
     const details = buildDetails()
     const line: QuoteLine = {
-      id:            crypto.randomUUID(),
-      product_id:    product.id,
+      id:                 crypto.randomUUID(),
+      product_id:         product.id,
       description,
-      details:       details || undefined,
+      details:            details || undefined,
       quantity,
-      unit_price_ht: unitPrice,
-      vat_rate:      product.vat_rate ?? 21,
-      width_cm:      hasDimensions ? widthCm  : undefined,
-      height_cm:     hasDimensions ? heightCm : undefined,
-      delai_days:    selDelai?.days    ?? undefined,
-      delai_label:   selDelai?.label   ?? undefined,
+      unit_price_ht:      unitPrice,
+      vat_rate:           product.vat_rate ?? 21,
+      width_cm:           hasDimensions ? widthCm  : undefined,
+      height_cm:          hasDimensions ? heightCm : undefined,
+      delai_days:         selDelai?.days    ?? undefined,
+      delai_label:        selDelai?.label   ?? undefined,
+      // Finitions structurées — nécessaires pour la reconstitution du panier lors de l'acceptation du devis
+      selectedFinitions:  { ...selFin },
+      selectedDelai:      selDelai ?? null,
+      selectedSides:      { ...selSides },
     }
     onConfirm(line)
   }
@@ -395,8 +399,8 @@ export default function ProductLineModal({ product, onConfirm, onClose }: Props)
                         selected ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 hover:border-blue-300 bg-white'
                       }`}>
                       <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-800'}`}>{d.label}</p>
-                      {d.price_supplement > 0 && (
-                        <p className={`text-xs mt-0.5 ${selected ? 'text-blue-200' : 'text-slate-400'}`}>+{fmt(d.price_supplement)}</p>
+                      {d.surcharge_percent > 0 && (
+                        <p className={`text-xs mt-0.5 ${selected ? 'text-blue-200' : 'text-slate-400'}`}>+{d.surcharge_percent}%</p>
                       )}
                       {d.is_express && (
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-1 inline-block ${selected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'}`}>EXPRESS</span>

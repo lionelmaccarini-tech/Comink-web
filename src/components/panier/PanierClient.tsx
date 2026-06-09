@@ -1660,15 +1660,31 @@ export default function PanierClient() {
     setSavingQuote(true)
     setQuoteError(null)
     try {
+      // Résoudre l'adresse de livraison complète
+      let resolvedShippingAddress = ''
+      if (deliveryMethod === 'pickup') {
+        resolvedShippingAddress = payDeliveryConfig?.delivery?.atelier_address ?? 'Enlèvement atelier'
+      } else if (deliveryAddressForKm) {
+        resolvedShippingAddress = deliveryAddressForKm
+      }
+
       const res = await fetch('/api/cart-to-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, orderReference, vatNumber }),
+        body: JSON.stringify({
+          items,
+          orderReference,
+          vatNumber,
+          deliveryMethod,
+          deliveryCost,
+          deliveryAddress: resolvedShippingAddress,
+          deliveryCountry: deliveryMethod === 'pickup' ? 'BE' : (deliveryAddressForKm ? (billingAddr.country || 'BE') : 'BE'),
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setQuoteSaved(true)
-      setTimeout(() => setQuoteSaved(false), 5000)
+      clearCart()
+      router.push('/compte?tab=devis')
     } catch (err: any) {
       setQuoteError(err.message || 'Erreur lors de la sauvegarde du devis')
     } finally {

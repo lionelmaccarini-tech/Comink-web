@@ -10,10 +10,12 @@ export async function GET(req: NextRequest) {
     const status_id = searchParams.get('status_id')
     const assignee_id = searchParams.get('assignee_id')
     const search = searchParams.get('search')
+    const mode = searchParams.get('mode') // 'sous-traitance' | null (= production)
 
     let query = supabase
       .from('production_lines')
       .select('*, status:production_statuses(*)')
+      .eq('is_subcontracted', mode === 'sous-traitance')
       .order('created_at', { ascending: false })
 
     if (status_id) query = query.eq('status_id', status_id)

@@ -201,7 +201,62 @@ function fmtSuppl(priceType: string, amount: number): string {
 export default function CommandeRapideClient({ products }: { products: ProductInfo[] }) {
   const { addItem } = useCart()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [rows, setRows] = useState<ProductRow[]>([emptyRow()])
+  const [rows, setRows] = useState<ProductRow[]>(() => {
+    // Lire les lignes pré-chargées par Angelo (si présentes)
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('comink_angelo_preload')
+        if (raw) {
+          localStorage.removeItem('comink_angelo_preload')
+          const items = JSON.parse(raw) as Record<string, unknown>[]
+          if (Array.isArray(items) && items.length > 0) {
+            const mapped: ProductRow[] = items.map((item) => {
+              const pid = (item.product_id ?? '') as string
+              const product = item.product as Record<string, unknown> | undefined
+              const finitionGroups = normalizeFinitions((product?.finitions as any[]) ?? [])
+              const delais: any[] = (product?.delai_options as any[]) ?? []
+              const sidesFinitions = product?.sides_finitions as any
+
+              const selectedFinitions: Record<string, string | string[]> = {}
+              finitionGroups.forEach((g: any) => {
+                if (g.display_type === 'select') {
+                  selectedFinitions[g.id] = g.options.find((o: any) => o.default_selected)?.id ?? ''
+                } else {
+                  selectedFinitions[g.id] = g.options.filter((o: any) => o.default_selected).map((o: any) => o.id)
+                }
+              })
+              const selectedDelai = delais.length > 0
+                ? ([...delais].sort((a: any, b: any) => a.days - b.days)[0] as ProductRow['selectedDelai'])
+                : null
+              const selectedSides: Record<string, string[]> = {}
+              if (sidesFinitions?.enabled) {
+                sidesFinitions.sides?.forEach((s: any) => { selectedSides[s.id] = [] })
+              }
+
+              const row: ProductRow = {
+                id:               rowId(),
+                product_id:       pid,
+                width_cm:         item.width_cm != null ? Number(item.width_cm) : '',
+                height_cm:        item.height_cm != null ? Number(item.height_cm) : '',
+                quantity:         Number(item.quantity) || 1,
+                expanded:         false,
+                selectedFinitions,
+                selectedDelai,
+                selectedSides,
+                uploadProgress:   0,
+                fileState:        'none',
+                batNote:          '',
+                forceValidate:    false,
+              }
+              return row
+            })
+            return mapped
+          }
+        }
+      } catch {}
+    }
+    return [emptyRow()]
+  })
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importInfo, setImportInfo] = useState<string | null>(null)
@@ -387,7 +442,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
         totalPages += pages.length
         const defaultProduct = surMesureProducts[0]
         const defaultConfig = defaultProduct ? initRowConfig(defaultProduct) : { selectedFinitions: {}, selectedDelai: null, selectedSides: {} }
-        pages.forEach((pg, pageIdx) => {
+        pages.forEach((pg) => {
           allNewRows.push({
             id: rowId(),
             product_id: defaultProduct?.id ?? '',
@@ -400,8 +455,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
             fileState: 'none',
             batNote: '',
             forceValidate: false,
-            // Associer le fichier uniquement à la première page (une ligne par page, même fichier)
-            fileObj: pageIdx === 0 ? file : undefined,
+            // Pas d'upload automatique — les dimensions sont extraites, le fichier s'ajoute manuellement
           })
         })
       }
@@ -417,22 +471,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
       })
 
       const fc = pdfs.length
-      setImportInfo(`${totalPages} page${totalPages > 1 ? 's' : ''} importée${totalPages > 1 ? 's' : ''} depuis ${fc} fichier${fc > 1 ? 's' : ''}`)
-
-      // Marquer les rows avec fichier en 'uploading' immédiatement (rendu visible)
-      // puis déclencher l'upload en arrière-plan
-      const rowsWithFile = allNewRows.filter(r => r.fileObj)
-      if (rowsWithFile.length > 0) {
-        setRows(current => current.map(r => {
-          const hasFile = rowsWithFile.find(rf => rf.id === r.id)
-          return hasFile ? { ...r, fileState: 'uploading' as const } : r
-        }))
-        setTimeout(() => {
-          rowsWithFile.forEach(row => {
-            uploadAndAnalyzeRow(row.id, row.fileObj!, row)
-          })
-        }, 50)
-      }
+      setImportInfo(`${totalPages} page${totalPages > 1 ? 's' : ''} importée${totalPages > 1 ? 's' : ''} depuis ${fc} fichier${fc > 1 ? 's' : ''} — dimensions extraites`)
     } catch {
       setImportError('Erreur lors de la lecture des PDFs.')
     } finally {

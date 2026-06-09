@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Search, UserPlus, X, Check, Building2, Mail, Phone, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, UserPlus, X, Check, Building2, Mail, Phone, AlertCircle, Loader2, MapPin } from 'lucide-react'
 
 export interface ClientData {
   id?: string
@@ -10,6 +10,11 @@ export interface ClientData {
   company?: string
   phone?: string
   vat_number?: string
+  billing_line1?: string
+  billing_line2?: string
+  billing_city?: string
+  billing_postal_code?: string
+  billing_country?: string
 }
 
 interface Props {
@@ -175,17 +180,22 @@ export default function ClientPicker({ value, onChange, vendeurName, vendeurId }
         if (!user) return
         const { data } = await supabase
           .from('profiles')
-          .select('id, full_name, email, company, phone, vat_number')
+          .select('id, full_name, email, company, phone, vat_number, billing_line1, billing_line2, billing_city, billing_postal_code, billing_country')
           .eq('id', user.id)
           .single()
         if (data) {
           setCurrentUser({
-            id:         data.id,
-            full_name:  data.full_name  || user.email?.split('@')[0] || '',
-            email:      data.email      || user.email || '',
-            company:    data.company    || '',
-            phone:      data.phone      || '',
-            vat_number: data.vat_number || '',
+            id:                  data.id,
+            full_name:           data.full_name  || user.email?.split('@')[0] || '',
+            email:               data.email      || user.email || '',
+            company:             data.company    || '',
+            phone:               data.phone      || '',
+            vat_number:          data.vat_number || '',
+            billing_line1:       data.billing_line1       || '',
+            billing_line2:       data.billing_line2       || '',
+            billing_city:        data.billing_city        || '',
+            billing_postal_code: data.billing_postal_code || '',
+            billing_country:     data.billing_country     || 'BE',
           })
         }
       })
@@ -219,12 +229,17 @@ export default function ClientPicker({ value, onChange, vendeurName, vendeurId }
 
   const select = (client: ClientData) => {
     onChange({
-      id:         client.id,
-      full_name:  client.full_name  || '',
-      email:      client.email      || '',
-      company:    client.company    || '',
-      phone:      client.phone      || '',
-      vat_number: client.vat_number || '',
+      id:                   client.id,
+      full_name:            client.full_name            || '',
+      email:                client.email               || '',
+      company:              client.company             || '',
+      phone:                client.phone               || '',
+      vat_number:           client.vat_number          || '',
+      billing_line1:        client.billing_line1        || '',
+      billing_line2:        client.billing_line2        || '',
+      billing_city:         client.billing_city         || '',
+      billing_postal_code:  client.billing_postal_code  || '',
+      billing_country:      client.billing_country      || 'BE',
     })
     setQuery('')
     setOpen(false)
@@ -232,7 +247,7 @@ export default function ClientPicker({ value, onChange, vendeurName, vendeurId }
   }
 
   const clear = () => {
-    onChange({ full_name: '', email: '', company: '', phone: '', vat_number: '' })
+    onChange({ full_name: '', email: '', company: '', phone: '', vat_number: '', billing_line1: '', billing_line2: '', billing_city: '', billing_postal_code: '', billing_country: 'BE' })
     setQuery('')
     setTimeout(() => inputRef.current?.focus(), 50)
   }
@@ -265,6 +280,21 @@ export default function ClientPicker({ value, onChange, vendeurName, vendeurId }
           )}
           {value.vat_number && (
             <p className="text-xs text-slate-500">TVA : {value.vat_number}</p>
+          )}
+          {(value.billing_line1 || value.billing_city) && (
+            <p className="text-xs text-slate-500 flex items-start gap-1 mt-1">
+              <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span>
+                {[value.billing_line1, value.billing_line2].filter(Boolean).join(', ')}
+                {value.billing_city && <>, {value.billing_postal_code} {value.billing_city}</>}
+                {value.billing_country && value.billing_country !== 'BE' && <>, {value.billing_country}</>}
+              </span>
+            </p>
+          )}
+          {!value.billing_line1 && !value.billing_city && (
+            <p className="text-xs text-amber-500 flex items-center gap-1 mt-1">
+              <MapPin className="w-3 h-3" /> Adresse de facturation manquante
+            </p>
           )}
         </div>
       </div>

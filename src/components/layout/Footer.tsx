@@ -107,7 +107,11 @@ export default function Footer() {
 
         <div className="border-t border-slate-800 mt-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-xs">
           <p>© {new Date().getFullYear()} Comink — Tous droits réservés</p>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
+            <Link href="/conditions-d-utilisation" className="hover:text-slate-300 transition-colors">Conditions d'utilisation</Link>
+            <Link href="/conditions-generales-de-ventes" className="hover:text-slate-300 transition-colors">CGV</Link>
+            <Link href="/informations-legales" className="hover:text-slate-300 transition-colors">Informations légales</Link>
+            <Link href="/paiement-securise" className="hover:text-slate-300 transition-colors">Paiement sécurisé</Link>
             <Link href="/mentions-legales" className="hover:text-slate-300 transition-colors">Mentions légales</Link>
             <Link href="/politique-confidentialite" className="hover:text-slate-300 transition-colors">Politique de confidentialité</Link>
           </div>

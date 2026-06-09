@@ -219,6 +219,7 @@ export async function POST(req: NextRequest) {
               delai_label:       delaiLabel,
               finitions_summary: finitions.length ? finitions : null,
               sort_order:        sortOrder++,
+              is_subcontracted:  item.product?.is_subcontracted ?? false,
             })
           }
         } else {
@@ -243,6 +244,7 @@ export async function POST(req: NextRequest) {
             delai_label:       delaiLabel,
             finitions_summary: finitions.length ? finitions : null,
             sort_order:        sortOrder++,
+            is_subcontracted:  item.product?.is_subcontracted ?? false,
           })
         }
       }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen } from 'lucide-react'
+import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen, FileText, Brain, BarChart2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ProductModal from './ProductModal'
 import CollaborateursTab from './CollaborateursTab'
@@ -12,8 +12,11 @@ import CategoriesTab, { type Category } from './CategoriesTab'
 import ProductionTab from './ProductionTab'
 import PaymentDeliveryTab from './PaymentDeliveryTab'
 import BlogTab from './BlogTab'
+import LegalPagesTab from './LegalPagesTab'
+import AngeloKnowledgeTab from './AngeloKnowledgeTab'
+import AnalyticsTab from './AnalyticsTab'
 
-type TabId = 'produits' | 'clients' | 'listes-prix' | 'collaborateurs' | 'categories' | 'production' | 'payment' | 'blog' | 'parametres'
+type TabId = 'produits' | 'clients' | 'listes-prix' | 'collaborateurs' | 'categories' | 'production' | 'payment' | 'blog' | 'legal' | 'angelo' | 'analytics' | 'parametres'
 
 export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const searchParams = useSearchParams()
@@ -210,6 +213,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             { id: 'production' as const, icon: Settings2, label: 'Production', badge: undefined },
             { id: 'payment' as const, icon: CreditCard, label: 'Paiement & Livraison', badge: undefined },
             { id: 'blog' as const, icon: BookOpen, label: 'Blog', badge: undefined },
+            { id: 'legal' as const, icon: FileText, label: 'Pages légales', badge: undefined },
+            { id: 'analytics' as const, icon: BarChart2, label: 'Analytics', badge: undefined },
+            { id: 'angelo' as const, icon: Brain, label: 'Angelo IA', badge: undefined },
             { id: 'parametres' as const, icon: Settings, label: 'Paramètres', badge: undefined },
           ]).map(({ id, icon: Icon, label, badge }) => (
             <button key={id} onClick={() => setTab(id)}
@@ -406,6 +412,16 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
         {/* ── BLOG ── */}
         {tab === 'blog' && <BlogTab />}
+
+        {/* ── ANALYTICS ── */}
+        {tab === 'analytics' && <AnalyticsTab />}
+
+        {/* ── ANGELO IA ── */}
+        {tab === 'angelo' && <AngeloKnowledgeTab />}
+
+
+        {/* ── PAGES LÉGALES ── */}
+        {tab === 'legal' && <LegalPagesTab />}
 
         {/* ── PARAMÈTRES ── */}
         {tab === 'parametres' && (

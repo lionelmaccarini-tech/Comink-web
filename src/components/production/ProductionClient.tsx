@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useMemo, useCallback } from 'react'
-import { LayoutGrid, List, Calendar, Search, RefreshCw, ChevronDown, Truck, Download, X, CheckSquare } from 'lucide-react'
+import { LayoutGrid, List, Calendar, Search, RefreshCw, ChevronDown, Truck, Download, X, CheckSquare, Factory, PackageSearch } from 'lucide-react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { ProductionLine, ProductionStatus, StaffMember } from './types'
 import KanbanView from './KanbanView'
@@ -15,6 +16,7 @@ interface Props {
   statuses: ProductionStatus[]
   staff: StaffMember[]
   userRole: string
+  mode?: 'production' | 'sous-traitance'
 }
 
 type ViewType = 'kanban' | 'list' | 'calendar' | 'deliveries'
@@ -57,7 +59,7 @@ async function downloadMultipleVisuals(targetLines: ProductionLine[]): Promise<v
   }
 }
 
-export default function ProductionClient({ lines: initialLines, statuses, staff, userRole }: Props) {
+export default function ProductionClient({ lines: initialLines, statuses, staff, userRole, mode = 'production' }: Props) {
   const enrichLines = (raw: ProductionLine[]) =>
     raw.map(l => ({
       ...l,
@@ -148,7 +150,8 @@ export default function ProductionClient({ lines: initialLines, statuses, staff,
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      const res = await fetch('/api/production/lines')
+      const qs = mode === 'sous-traitance' ? '?mode=sous-traitance' : ''
+      const res = await fetch(`/api/production/lines${qs}`)
       if (res.ok) setLines(await res.json())
     } finally { setRefreshing(false) }
   }
@@ -192,9 +195,26 @@ export default function ProductionClient({ lines: initialLines, statuses, staff,
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-black text-slate-900">Production</h1>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-xl font-black text-slate-900">
+                {mode === 'sous-traitance' ? 'Sous-traitance' : 'Production'}
+              </h1>
+              {/* Switch planning */}
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                <Link href="/production"
+                  className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                    mode === 'production' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')}>
+                  <Factory className="w-3.5 h-3.5" /> Production
+                </Link>
+                <Link href="/production/sous-traitance"
+                  className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                    mode === 'sous-traitance' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')}>
+                  <PackageSearch className="w-3.5 h-3.5" /> Sous-traitance
+                </Link>
+              </div>
+            </div>
             {view !== 'deliveries' && (
-              <p className="text-xs text-slate-500 mt-0.5">{filteredLines.length} ligne{filteredLines.length !== 1 ? 's' : ''} de production</p>
+              <p className="text-xs text-slate-500 mt-0.5">{filteredLines.length} ligne{filteredLines.length !== 1 ? 's' : ''}{mode === 'sous-traitance' ? ' sous-traitées' : ' de production'}</p>
             )}
           </div>
           <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">

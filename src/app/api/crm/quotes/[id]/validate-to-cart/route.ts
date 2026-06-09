@@ -47,30 +47,74 @@ export async function POST(
 
     const items: unknown[] = Array.isArray(quote.items) ? quote.items : []
 
+    // Récupérer tous les produits référencés en une seule requête
+    const productIds = items
+      .map((i: unknown) => (i as Record<string, unknown>).product_id)
+      .filter((id): id is string => typeof id === 'string' && !!id)
+
+    const productMap: Record<string, Record<string, unknown>> = {}
+    if (productIds.length > 0) {
+      const { data: dbProducts } = await supabase
+        .from('products')
+        .select('id, name, category, vat_rate, price_per_m2, price_flat, finitions, delai_options, sides_finitions, standard_sizes, image_url, bleed_mm, min_width_cm, min_height_cm')
+        .in('id', productIds)
+      if (dbProducts) {
+        for (const p of dbProducts) productMap[p.id] = p as Record<string, unknown>
+      }
+    }
+
     // Transformer les items du devis en format panier
     const cartItems = items.map((item: unknown) => {
       const line = item as Record<string, unknown>
+
+      // Compatibilité multi-formats :
+      // • CRM (QuoteEditor)     → unit_price_ht, description, total_price
+      // • Panier (cart-to-quote) → unit_price,    product_name, total
       const unitPrice = (line.unit_price_ht ?? line.unit_price ?? 0) as number
-      const qty = (line.quantity ?? 1) as number
-      const totalLine = (line.total_price ?? qty * unitPrice) as number
+      const qty       = (line.quantity ?? 1) as number
+      const totalLine = (line.total_price ?? line.total ?? qty * unitPrice) as number
+
+      // Nom du produit — chercher dans tous les champs possibles
+      const productNameFallback = (
+        (line.description as string)
+        ?? (line.product_name as string)
+        ?? (line.name as string)
+        ?? ''
+      ).trim()
+
+      const pid = line.product_id as string | undefined
+
+      // Priorité : produit complet depuis la DB (avec finitions/delai_options)
+      // Fallback : objet minimal avec le nom reconstruit
+      let product: Record<string, unknown>
+      if (pid && productMap[pid]) {
+        // Toujours garder le nom DB mais forcer le fallback si vide
+        const dbProduct = productMap[pid]
+        product = {
+          ...dbProduct,
+          name: (dbProduct.name as string) || productNameFallback || 'Article',
+        }
+      } else {
+        product = (line.product as Record<string, unknown>) ?? {
+          name: productNameFallback || 'Article',
+          id: pid ?? null,
+        }
+      }
 
       return {
-        product_id: line.product_id ?? null,
-        product: line.product ?? {
-          name: line.description ?? '',
-          id: line.product_id ?? null,
-        },
-        quantity: qty,
-        width_cm: line.width_cm ?? null,
-        height_cm: line.height_cm ?? null,
-        unit_price: unitPrice,          // PRIX DU DEVIS — ne pas recalculer
-        total_price: totalLine,
-        selectedFinitions: line.selectedFinitions ?? {},
-        selectedDelai: line.selectedDelai ?? null,
-        selectedSides: line.selectedSides ?? {},
-        _from_quote: true,
-        _quote_id: quote.id,
-        _quote_number: quote.quote_number,
+        product_id:        pid ?? null,
+        product,
+        quantity:          qty,
+        width_cm:          line.width_cm  ?? null,
+        height_cm:         line.height_cm ?? null,
+        unit_price:        unitPrice,   // PRIX DU DEVIS — ne pas recalculer
+        total_price:       totalLine,
+        selectedFinitions: (line.selectedFinitions as Record<string, string | string[]>) ?? {},
+        selectedDelai:     line.selectedDelai ?? null,
+        selectedSides:     (line.selectedSides as Record<string, string[]>) ?? {},
+        _from_quote:       true,
+        _quote_id:         quote.id,
+        _quote_number:     quote.quote_number,
       }
     })
 

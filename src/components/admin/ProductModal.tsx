@@ -80,6 +80,7 @@ interface ProductForm {
   category: string
   description: string
   product_type: 'sur_mesure' | 'taille_standard'
+  is_subcontracted: boolean
   image_url: string
   images: string[]
   available: boolean
@@ -128,6 +129,7 @@ const emptyForm = (): ProductForm => ({
   category: 'banderoles',
   description: '',
   product_type: 'sur_mesure',
+  is_subcontracted: false,
   image_url: '',
   images: [],
   available: true,
@@ -285,6 +287,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         category: product.category ?? 'banderoles',
         description: product.description ?? '',
         product_type: product.product_type ?? 'sur_mesure',
+        is_subcontracted: product.is_subcontracted ?? false,
         image_url: product.image_url ?? '',
         // Exclude main image from extra images to avoid duplication on re-save
         images: (product.images ?? []).filter((url: string) => url !== product.image_url),
@@ -409,6 +412,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         category: form.category,
         description: form.description,
         product_type: form.product_type,
+        is_subcontracted: form.is_subcontracted,
         image_url: form.image_url || null,
         images: form.image_url ? [form.image_url, ...form.images.filter(Boolean)] : form.images.filter(Boolean),
         available: form.available,
@@ -541,6 +545,22 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
                   </select>
                 </Field>
               </div>
+
+              {/* Sous-traitance */}
+              <label className="flex items-start gap-3 cursor-pointer group p-3 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50/50 transition-colors">
+                <div className="mt-0.5 flex-shrink-0">
+                  <div onClick={() => set('is_subcontracted', !form.is_subcontracted)}
+                    className={cn('relative w-10 h-5 rounded-full transition-colors', form.is_subcontracted ? 'bg-orange-500' : 'bg-slate-300')}>
+                    <span className={cn('absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform', form.is_subcontracted ? 'translate-x-5' : 'translate-x-0.5')} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Produit sous-traité</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Ce produit est fabriqué par un fournisseur externe. Il n'apparaîtra pas dans le planning de production principal et aura son propre planning de sous-traitance.
+                  </p>
+                </div>
+              </label>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">

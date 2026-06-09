@@ -26,7 +26,7 @@ export default async function ComptePage() {
 
   const { data: quotes } = await supabase
     .from('quotes')
-    .select('id, quote_number, reference, cart_items, total, status, created_at, expires_at')
+    .select('id, quote_number, reference, items, subtotal, tax, total, status, created_at, valid_until, vat_number, delivery_method, delivery_cost, delivery_address')
     .eq('user_id', user.id)
     .neq('status', 'cancelled')
     .order('created_at', { ascending: false })

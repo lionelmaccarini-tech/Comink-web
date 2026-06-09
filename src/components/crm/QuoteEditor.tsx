@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Send, Save, X, Package, AlertCircle, Truck, Store, Zap, ChevronDown, Loader2, Eye, EyeOff, Lock } from 'lucide-react'
+import { Plus, Trash2, Send, Save, X, Package, AlertCircle, Truck, Store, Zap, ChevronDown, Loader2, Eye, EyeOff, Lock, Package2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { calcDeliveryCost, type DeliverySettings } from '@/lib/utils'
 import ClientPicker, { ClientData } from './ClientPicker'
@@ -24,6 +24,10 @@ export interface QuoteLine {
   height_cm?: number
   delai_days?: number
   delai_label?: string
+  // Finitions structurées (pour reconstituion du panier)
+  selectedFinitions?: Record<string, string | string[]>
+  selectedDelai?: { id: string; days: number; label: string; surcharge_percent: number; is_express: boolean } | null
+  selectedSides?: Record<string, string[]>
 }
 
 interface Vendeur { id: string; full_name: string; role: string }
@@ -119,12 +123,17 @@ export default function QuoteEditor({ initialData }: Props) {
 
   // Client (managed by ClientPicker)
   const [client, setClient] = useState<ClientData>({
-    id:         initialData?.user_id       ?? undefined,
-    full_name:  initialData?.client_name   ?? '',
-    email:      initialData?.client_email  ?? '',
-    company:    initialData?.client_company ?? '',
-    phone:      initialData?.client_phone  ?? '',
-    vat_number: initialData?.vat_number    ?? '',
+    id:                  initialData?.user_id              ?? undefined,
+    full_name:           initialData?.client_name          ?? '',
+    email:               initialData?.client_email         ?? '',
+    company:             initialData?.client_company       ?? '',
+    phone:               initialData?.client_phone         ?? '',
+    vat_number:          initialData?.vat_number           ?? '',
+    billing_line1:       initialData?.billing_line1        ?? '',
+    billing_line2:       initialData?.billing_line2        ?? '',
+    billing_city:        initialData?.billing_city         ?? '',
+    billing_postal_code: initialData?.billing_postal_code  ?? '',
+    billing_country:     initialData?.billing_country      ?? 'BE',
   })
   const [reference, setReference] = useState(initialData?.reference ?? '')
 
@@ -312,12 +321,17 @@ export default function QuoteEditor({ initialData }: Props) {
 
   // ── Save / Send ──────────────────────────────────────────────────────────────
   const buildPayload = () => ({
-    client_name:       client.full_name,
-    client_email:      client.email,
-    client_company:    client.company    || null,
-    client_phone:      client.phone      || null,
-    vat_number:        client.vat_number || null,
-    user_id:           client.id         || null,
+    client_name:          client.full_name,
+    client_email:         client.email,
+    client_company:       client.company             || null,
+    client_phone:         client.phone               || null,
+    vat_number:           client.vat_number          || null,
+    billing_line1:        client.billing_line1        || null,
+    billing_line2:        client.billing_line2        || null,
+    billing_city:         client.billing_city         || null,
+    billing_postal_code:  client.billing_postal_code  || null,
+    billing_country:      client.billing_country       || null,
+    user_id:              client.id                   || null,
     reference:         reference         || null,
     items:             lines,
     delivery_method:   deliveryMethod,
@@ -444,14 +458,74 @@ export default function QuoteEditor({ initialData }: Props) {
               vendeurName={vendeurs.find(v => v.id === assignedTo)?.full_name}
               vendeurId={assignedTo || currentUserId || undefined}
             />
-            {/* Reference field — always visible */}
+            {/* Billing address + reference — always visible once client is selected */}
             {client.email && (
-              <div className="mt-4">
-                <label className="block text-xs text-slate-500 mb-1">Référence client (optionnel)</label>
-                <input value={reference} onChange={e => setReference(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="PO-2026-001" />
-              </div>
+              <>
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                    <span>📍</span> Adresse de facturation
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-slate-500 mb-1">Rue / ligne 1</label>
+                      <input
+                        value={client.billing_line1 || ''}
+                        onChange={e => setClient(c => ({ ...c, billing_line1: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Rue de la Paix 12" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-slate-500 mb-1">Complément (optionnel)</label>
+                      <input
+                        value={client.billing_line2 || ''}
+                        onChange={e => setClient(c => ({ ...c, billing_line2: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Bte 3, Bâtiment B…" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Code postal</label>
+                      <input
+                        value={client.billing_postal_code || ''}
+                        onChange={e => setClient(c => ({ ...c, billing_postal_code: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="4000" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Ville</label>
+                      <input
+                        value={client.billing_city || ''}
+                        onChange={e => setClient(c => ({ ...c, billing_city: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Liège" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Pays</label>
+                      <select
+                        value={client.billing_country || 'BE'}
+                        onChange={e => setClient(c => ({ ...c, billing_country: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="BE">Belgique</option>
+                        <option value="FR">France</option>
+                        <option value="LU">Luxembourg</option>
+                        <option value="NL">Pays-Bas</option>
+                        <option value="DE">Allemagne</option>
+                        <option value="GB">Royaume-Uni</option>
+                        <option value="CH">Suisse</option>
+                        <option value="ES">Espagne</option>
+                        <option value="IT">Italie</option>
+                        <option value="PT">Portugal</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-xs text-slate-500 mb-1">Référence client (optionnel)</label>
+                  <input value={reference} onChange={e => setReference(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="PO-2026-001" />
+                </div>
+              </>
             )}
           </div>
 
@@ -509,56 +583,92 @@ export default function QuoteEditor({ initialData }: Props) {
             </div>
 
             <div className="space-y-2">
-              {lines.map((line, idx) => (
-                <div key={line.id} className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-                  <div className="grid sm:grid-cols-12 gap-2 items-start">
-                    {/* Description */}
-                    <div className="sm:col-span-5">
-                      <input value={line.description} onChange={e => updateLine(line.id, { description: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={`Ligne ${idx + 1}`} />
-                      <input value={line.details || ''} onChange={e => updateLine(line.id, { details: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white mt-1 text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-300"
-                        placeholder="Détails (dimensions, finitions...)" />
-                    </div>
-                    {/* Qty */}
-                    <div className="sm:col-span-2">
-                      <label className="sm:hidden text-xs text-slate-400 mb-1 block">Qté</label>
-                      <input type="number" min={1} value={line.quantity} onChange={e => updateLine(line.id, { quantity: Number(e.target.value) || 1 })}
-                        className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    {/* Unit price */}
-                    <div className="sm:col-span-2">
-                      <label className="sm:hidden text-xs text-slate-400 mb-1 block">P.U. HT (€)</label>
-                      <input type="number" min={0} step={0.01} value={line.unit_price_ht} onChange={e => updateLine(line.id, { unit_price_ht: parseFloat(e.target.value) || 0 })}
-                        className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    {/* VAT */}
-                    <div className="sm:col-span-1">
-                      <label className="sm:hidden text-xs text-slate-400 mb-1 block">TVA %</label>
-                      <select value={line.vat_rate} onChange={e => updateLine(line.id, { vat_rate: Number(e.target.value) })}
-                        className="w-full border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value={0}>0%</option>
-                        <option value={6}>6%</option>
-                        <option value={21}>21%</option>
-                      </select>
-                    </div>
-                    {/* Total */}
-                    <div className="sm:col-span-1 flex items-center justify-end">
-                      <span className="text-sm font-semibold text-slate-700">
-                        {fmt(line.quantity * line.unit_price_ht)}
-                      </span>
-                    </div>
-                    {/* Delete */}
-                    <div className="sm:col-span-1 flex items-center justify-end">
-                      <button onClick={() => removeLine(line.id)}
-                        className="text-slate-300 hover:text-red-400 transition-colors p-1">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              {lines.map((line, idx) => {
+                // Catalogue lines are locked in edit mode — only qty is editable
+                const isCatalogueLocked = isEdit && !!line.product_id
+                return (
+                  <div key={line.id} className={`border rounded-lg p-3 ${isCatalogueLocked ? 'bg-slate-50 border-slate-200' : 'bg-slate-50/50 border-slate-200'}`}>
+                    {isCatalogueLocked && (
+                      <div className="flex items-center gap-1.5 mb-2 text-xs text-slate-400">
+                        <Lock className="w-3 h-3" />
+                        <span>Ligne catalogue — modifiable : quantité uniquement. Pour changer les specs, supprimez et recréez la ligne.</span>
+                      </div>
+                    )}
+                    <div className="grid sm:grid-cols-12 gap-2 items-start">
+                      {/* Description */}
+                      <div className="sm:col-span-5">
+                        {isCatalogueLocked ? (
+                          <div className="px-2.5 py-1.5 text-sm text-slate-700 bg-slate-100 rounded-lg border border-slate-200">
+                            {line.description || `Ligne ${idx + 1}`}
+                          </div>
+                        ) : (
+                          <input value={line.description} onChange={e => updateLine(line.id, { description: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Ligne ${idx + 1}`} />
+                        )}
+                        {isCatalogueLocked ? (
+                          line.details && (
+                            <div className="px-2.5 py-1 text-xs text-slate-500 bg-slate-100 rounded-lg border border-slate-200 mt-1">
+                              {line.details}
+                            </div>
+                          )
+                        ) : (
+                          <input value={line.details || ''} onChange={e => updateLine(line.id, { details: e.target.value })}
+                            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-white mt-1 text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-300"
+                            placeholder="Détails (dimensions, finitions...)" />
+                        )}
+                      </div>
+                      {/* Qty — always editable */}
+                      <div className="sm:col-span-2">
+                        <label className="sm:hidden text-xs text-slate-400 mb-1 block">Qté</label>
+                        <input type="number" min={1} value={line.quantity} onChange={e => updateLine(line.id, { quantity: Number(e.target.value) || 1 })}
+                          className={`w-full border rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${isCatalogueLocked ? 'border-blue-300 bg-blue-50 font-semibold' : 'border-slate-200 bg-white'}`} />
+                      </div>
+                      {/* Unit price */}
+                      <div className="sm:col-span-2">
+                        <label className="sm:hidden text-xs text-slate-400 mb-1 block">P.U. HT (€)</label>
+                        {isCatalogueLocked ? (
+                          <div className="px-2.5 py-1.5 text-sm text-right text-slate-600 bg-slate-100 rounded-lg border border-slate-200">
+                            {fmt(line.unit_price_ht)}
+                          </div>
+                        ) : (
+                          <input type="number" min={0} step={0.01} value={line.unit_price_ht} onChange={e => updateLine(line.id, { unit_price_ht: parseFloat(e.target.value) || 0 })}
+                            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white text-right focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        )}
+                      </div>
+                      {/* VAT */}
+                      <div className="sm:col-span-1">
+                        <label className="sm:hidden text-xs text-slate-400 mb-1 block">TVA %</label>
+                        {isCatalogueLocked ? (
+                          <div className="px-1.5 py-1.5 text-sm text-center text-slate-600 bg-slate-100 rounded-lg border border-slate-200">
+                            {line.vat_rate}%
+                          </div>
+                        ) : (
+                          <select value={line.vat_rate} onChange={e => updateLine(line.id, { vat_rate: Number(e.target.value) })}
+                            className="w-full border border-slate-200 rounded-lg px-1.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value={0}>0%</option>
+                            <option value={6}>6%</option>
+                            <option value={21}>21%</option>
+                          </select>
+                        )}
+                      </div>
+                      {/* Total */}
+                      <div className="sm:col-span-1 flex items-center justify-end">
+                        <span className="text-sm font-semibold text-slate-700">
+                          {fmt(line.quantity * line.unit_price_ht)}
+                        </span>
+                      </div>
+                      {/* Delete */}
+                      <div className="sm:col-span-1 flex items-center justify-end">
+                        <button onClick={() => removeLine(line.id)}
+                          className="text-slate-300 hover:text-red-400 transition-colors p-1">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <button onClick={addLine}

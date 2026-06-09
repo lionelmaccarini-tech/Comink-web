@@ -5,11 +5,11 @@ import ProductionClient from '@/components/production/ProductionClient'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
-  title: 'Production — Comink',
+  title: 'Sous-traitance — Comink',
   robots: { index: false, follow: false },
 }
 
-export default async function ProductionPage() {
+export default async function SousTraitancePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/?login=required')
@@ -30,7 +30,7 @@ export default async function ProductionPage() {
     service
       .from('production_lines')
       .select('*, status:production_statuses(*)')
-      .eq('is_subcontracted', false)
+      .eq('is_subcontracted', true)
       .order('created_at', { ascending: false }),
     service
       .from('production_statuses')
@@ -42,17 +42,13 @@ export default async function ProductionPage() {
       .in('role', ['admin', 'collaborateur', 'producteur']),
   ])
 
-  if (linesRes.error)    console.error('[production page] lines error:', JSON.stringify(linesRes.error))
-  if (statusesRes.error) console.error('[production page] statuses error:', JSON.stringify(statusesRes.error))
-  console.log(`[production page] lines: ${linesRes.data?.length ?? 0}, statuses: ${statusesRes.data?.length ?? 0}`)
-
   return (
     <ProductionClient
       lines={linesRes.data ?? []}
       statuses={statusesRes.data ?? []}
       staff={staffRes.data ?? []}
       userRole={profile.role}
-      mode="production"
+      mode="sous-traitance"
     />
   )
 }

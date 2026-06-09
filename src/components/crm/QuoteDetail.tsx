@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Send, Edit3, CheckCircle, XCircle, Clock, MessageSquare, Phone, Mail, Notebook, Activity, Package, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Send, Edit3, CheckCircle, XCircle, Clock, MessageSquare, Phone, Mail, Notebook, Activity, Package, ExternalLink, Copy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ConvertToOrderModal from './ConvertToOrderModal'
+import DuplicateQuoteModal from './DuplicateQuoteModal'
 
 const fmt    = (n: number) => new Intl.NumberFormat('fr-BE', { style: 'currency', currency: 'EUR' }).format(n)
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -42,6 +43,7 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
   const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null)
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [convertedOrderNumber, setConvertedOrderNumber] = useState<string | null>(null)
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => setCurrentUser(user ? { id: user.id } : null))
@@ -138,6 +140,28 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
 
   return (
     <div>
+      {showDuplicateModal && quote && (
+        <DuplicateQuoteModal
+          quoteId={quoteId}
+          quoteNumber={quote.quote_number}
+          originalClient={{
+            full_name:           quote.client_name,
+            email:               quote.client_email,
+            company:             quote.client_company,
+            phone:               quote.client_phone,
+            vat_number:          quote.vat_number,
+            billing_line1:       quote.billing_line1,
+            billing_line2:       quote.billing_line2,
+            billing_city:        quote.billing_city,
+            billing_postal_code: quote.billing_postal_code,
+            billing_country:     quote.billing_country,
+            user_id:             quote.user_id,
+          }}
+          createdBy={currentUser?.id}
+          onClose={() => setShowDuplicateModal(false)}
+        />
+      )}
+
       {showConvertModal && quote && (
         <ConvertToOrderModal
           quote={quote}
@@ -367,6 +391,14 @@ export default function QuoteDetail({ quoteId, showSentBanner }: { quoteId: stri
                   <XCircle className="w-4 h-4" /> Marquer comme Perdu
                 </button>
               )}
+
+              {/* Dupliquer */}
+              <div className="border-t border-slate-100 pt-2 mt-1">
+                <button onClick={() => setShowDuplicateModal(true)}
+                  className="w-full flex items-center gap-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-2.5 rounded-lg transition-colors">
+                  <Copy className="w-4 h-4" /> Dupliquer ce devis
+                </button>
+              </div>
             </div>
           </div>
 
