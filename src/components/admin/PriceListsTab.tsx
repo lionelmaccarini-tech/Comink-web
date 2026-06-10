@@ -1,15 +1,18 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Plus, RefreshCw, Edit2, Trash2, Tag } from 'lucide-react'
+import { Plus, RefreshCw, Edit2, Trash2, Tag, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PriceListModal from './PriceListModal'
+import PriceExportModal from './PriceExportModal'
 
 export default function PriceListsTab() {
   const [priceLists, setPriceLists] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
+  const [exportPriceListId, setExportPriceListId] = useState<string | null>(null)
+  const [exportTitle, setExportTitle] = useState('')
 
   async function load() {
     setLoading(true)
@@ -142,6 +145,13 @@ export default function PriceListsTab() {
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => { setExportPriceListId(pl.id); setExportTitle(pl.name) }}
+                        className="p-1.5 hover:bg-sky-50 rounded-lg text-slate-400 hover:text-sky-600 transition-colors"
+                        title="Liste de prix"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
                       <button onClick={() => openEdit(pl)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors" title="Modifier">
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -163,6 +173,14 @@ export default function PriceListsTab() {
           priceList={editing}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {exportPriceListId && (
+        <PriceExportModal
+          priceListId={exportPriceListId}
+          title={exportTitle}
+          onClose={() => setExportPriceListId(null)}
         />
       )}
     </div>

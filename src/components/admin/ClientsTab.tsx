@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Search, Edit2, Trash2, Users, Building2, RefreshCw, Crown, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, Users, Building2, RefreshCw, Crown, ChevronDown, ChevronRight, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ClientModal from './ClientModal'
+import PriceExportModal from './PriceExportModal'
 
 export default function ClientsTab() {
   const [clients, setClients]       = useState<any[]>([])
@@ -17,6 +18,8 @@ export default function ClientsTab() {
   const [expanded, setExpanded]     = useState<string | null>(null)
   const [modalOpen, setModalOpen]   = useState(false)
   const [editingClient, setEditingClient] = useState<any>(null)
+  const [exportClientId, setExportClientId] = useState<string | null>(null)
+  const [exportTitle, setExportTitle] = useState('')
   const LIMIT = 50
 
   async function load(p = page, s = search) {
@@ -176,6 +179,13 @@ export default function ClientsTab() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setExportClientId(c.id); setExportTitle(c.name) }}
+                        className="p-1.5 hover:bg-sky-50 rounded-lg text-slate-400 hover:text-sky-600 transition-colors"
+                        title="Liste de prix"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
                       <button onClick={() => openEdit(c)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors">
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -241,6 +251,14 @@ export default function ClientsTab() {
           priceLists={priceLists}
           onClose={() => setModalOpen(false)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {exportClientId && (
+        <PriceExportModal
+          clientId={exportClientId}
+          title={exportTitle}
+          onClose={() => setExportClientId(null)}
         />
       )}
     </div>
