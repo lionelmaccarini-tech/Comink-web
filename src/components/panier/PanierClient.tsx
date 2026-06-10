@@ -1624,6 +1624,8 @@ export default function PanierClient() {
 
   // All items must have a file to proceed to step 2
   const allFilesUploaded = items.length > 0 && items.every(i => {
+    // Produits sans visuel requis (accessoires, sans impression…)
+    if (i.product?.requires_artwork === false) return true
     if (i.quantity > 1) {
       if (!i.files?.length) return false
       const tot = i.files.reduce((s, f) => s + f.copies, 0)
@@ -2022,11 +2024,20 @@ export default function PanierClient() {
                     />
                   </div>
 
-                  {/* Zone upload */}
-                  <FileZone
-                    item={item}
-                    onValidated={(patch) => updateItem(item.id, patch)}
-                  />
+                  {/* Zone upload — masquée si le produit ne nécessite pas de visuel */}
+                  {item.product?.requires_artwork !== false ? (
+                    <FileZone
+                      item={item}
+                      onValidated={(patch) => updateItem(item.id, patch)}
+                    />
+                  ) : (
+                    <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100">
+                      <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs text-slate-500">Aucun visuel requis pour ce produit</p>
+                    </div>
+                  )}
 
                   {/* Bouton supprimer — en bas de la carte, bien visible */}
                   <div className="mt-3 pt-3 border-t border-slate-100">

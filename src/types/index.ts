@@ -78,6 +78,8 @@ export interface Product {
   sides_finitions?: SidesFinitions | null
   // Accessoires liés
   linked_accessory_ids?: string[]
+  // Visuel client
+  requires_artwork?: boolean
   created_at: string
   updated_at: string
 }
