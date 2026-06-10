@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import HeroSection from '@/components/home/HeroSection'
 import Section3D from '@/components/home/Section3D'
 import FeaturedCategories from '@/components/home/FeaturedCategories'
+import WhyUsSection from '@/components/home/WhyUsSection'
 import CtaFinalSection from '@/components/home/CtaFinalSection'
 import LocalBusinessSchema from '@/components/seo/LocalBusinessSchema'
 
@@ -63,12 +64,17 @@ export default function HomePage() {
 
       {/* 2. Produits phares */}
       <Section3D delay={0.1}>
-        <Suspense fallback={<div className="bg-[#f0f9ff] py-24 animate-pulse" />}>
+        <Suspense fallback={<div className="py-24 animate-pulse" style={{ background: '#09111f' }} />}>
           <FeaturedCategories />
         </Suspense>
       </Section3D>
 
-      {/* 3. CTA final */}
+      {/* 3. Pourquoi Comink */}
+      <Section3D delay={0.12}>
+        <WhyUsSection />
+      </Section3D>
+
+      {/* 4. CTA final */}
       <Section3D delay={0.15}>
         <CtaFinalSection />
       </Section3D>
