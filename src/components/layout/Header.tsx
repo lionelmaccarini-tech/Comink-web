@@ -141,9 +141,13 @@ export default function Header() {
                     <div className="grid grid-cols-2 divide-x divide-slate-100">
                       {navCats.sur_mesure.length > 0 && (
                         <div className="py-2">
-                          <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sur mesure</p>
+                          <Link href="/catalogue?type=sur_mesure" onClick={() => setCatalogOpen(false)}
+                            className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider hover:text-blue-600 flex items-center gap-1 transition-colors">
+                            Sur mesure →
+                          </Link>
                           {navCats.sur_mesure.map((cat) => (
                             <Link key={cat.id} href={`/catalogue?type=sur_mesure&category=${cat.id}`}
+                              onClick={() => setCatalogOpen(false)}
                               className="flex items-center px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                               {cat.label}
                             </Link>
@@ -152,9 +156,13 @@ export default function Header() {
                       )}
                       {navCats.taille_standard.length > 0 && (
                         <div className="py-2">
-                          <p className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taille standard</p>
+                          <Link href="/catalogue?type=taille_standard" onClick={() => setCatalogOpen(false)}
+                            className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider hover:text-blue-600 flex items-center gap-1 transition-colors">
+                            Taille standard →
+                          </Link>
                           {navCats.taille_standard.map((cat) => (
                             <Link key={cat.id} href={`/catalogue?type=taille_standard&category=${cat.id}`}
+                              onClick={() => setCatalogOpen(false)}
                               className="flex items-center px-4 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                               {cat.label}
                             </Link>
@@ -310,7 +318,10 @@ export default function Header() {
               <div className="py-2 border-b border-sky-900">
                 {navCats.sur_mesure.length > 0 && (
                   <>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Sur mesure</p>
+                    <Link href="/catalogue?type=sur_mesure"
+                      className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 hover:text-blue-400 flex items-center gap-1 transition-colors">
+                      Sur mesure →
+                    </Link>
                     {navCats.sur_mesure.map((cat) => (
                       <Link key={cat.id} href={`/catalogue?type=sur_mesure&category=${cat.id}`}
                         className="block text-sm py-1.5 pl-3 text-slate-300">{cat.label}</Link>
@@ -319,7 +330,10 @@ export default function Header() {
                 )}
                 {navCats.taille_standard.length > 0 && (
                   <>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-2">Taille standard</p>
+                    <Link href="/catalogue?type=taille_standard"
+                      className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-2 hover:text-blue-400 flex items-center gap-1 transition-colors">
+                      Taille standard →
+                    </Link>
                     {navCats.taille_standard.map((cat) => (
                       <Link key={cat.id} href={`/catalogue?type=taille_standard&category=${cat.id}`}
                         className="block text-sm py-1.5 pl-3 text-slate-300">{cat.label}</Link>

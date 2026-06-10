@@ -85,6 +85,7 @@ interface AccessoireItem {
   selected: boolean
   selectedFinitions: Record<string, string | string[]>
   finitionsOpen: boolean
+  selectedSizeIdx: number   // pour taille_standard
 }
 
 interface Props {
@@ -103,6 +104,7 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
       selected: false,
       selectedFinitions: initFinitions(p),
       finitionsOpen: false,
+      selectedSizeIdx: 0,
     }))
   )
   const [added, setAdded] = useState(false)
@@ -126,6 +128,12 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
     ))
   }
 
+  function selectSize(productId: string, idx: number) {
+    setItems(prev => prev.map(it =>
+      it.product.id === productId ? { ...it, selectedSizeIdx: idx } : it
+    ))
+  }
+
   function setFinition(productId: string, groupId: string, value: string | string[]) {
     setItems(prev => prev.map(it =>
       it.product.id === productId
@@ -146,12 +154,16 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
   }
 
   // ── Calculs ──────────────────────────────────────────────────────────────────
-  function itemBasePrice(p: Product): number {
-    return p.standard_sizes?.[0]?.price ?? p.price_per_m2 ?? 0
+  function itemBasePrice(it: AccessoireItem): number {
+    const p = it.product
+    if (p.product_type === 'taille_standard' && p.standard_sizes?.length) {
+      return p.standard_sizes[it.selectedSizeIdx]?.price ?? p.standard_sizes[0].price
+    }
+    return p.price_per_m2 ?? 0
   }
 
   function itemUnitPrice(it: AccessoireItem): number {
-    const base = itemBasePrice(it.product)
+    const base = itemBasePrice(it)
     return base + calcFinitionsPrice(it.product, it.selectedFinitions, base)
   }
 
@@ -167,10 +179,15 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
       const defaultDelai = p.delai_options?.length
         ? [...p.delai_options].sort((a: any, b: any) => a.days - b.days)[0]
         : null
+      const selectedSize = p.product_type === 'taille_standard' && p.standard_sizes?.length
+        ? p.standard_sizes[it.selectedSizeIdx] ?? p.standard_sizes[0]
+        : null
       addItem({
         product_id: p.id,
         product: p as any,
         quantity: it.quantity,
+        width_cm: selectedSize?.width_cm,
+        height_cm: selectedSize?.height_cm,
         unit_price: unitPrice,
         total_price: unitPrice * it.quantity,
         selectedFinitions: it.selectedFinitions,
@@ -223,9 +240,11 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
             const groups = normalizeFinitions((p as any).finitions ?? [])
             const hasFinitions = groups.length > 0
             const unitPrice = itemUnitPrice(it)
-            const basePrice = itemBasePrice(p)
+            const basePrice = itemBasePrice(it)
             const finitionsSupp = unitPrice - basePrice
             const hasVariablePrice = !p.standard_sizes?.length && p.price_per_m2
+            const sizes = p.product_type === 'taille_standard' ? (p.standard_sizes ?? []) : []
+            const hasSizes = sizes.length > 1
 
             return (
               <div key={p.id} className={`
@@ -275,13 +294,18 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
                     )}
                     <p className="text-xs font-bold text-sky-600 mt-0.5">
                       {hasVariablePrice
-                        ? `À partir de ${formatPrice(basePrice)}/m²`
+                        ? `À partir de ${formatPrice(sizes[0]?.price ?? p.price_per_m2 ?? 0)}/m²`
                         : basePrice > 0 ? formatPrice(unitPrice) : 'Sur devis'
                       }
                       {finitionsSupp > 0 && (
                         <span className="text-slate-400 font-normal"> (dont +{formatPrice(finitionsSupp)} finitions)</span>
                       )}
                     </p>
+                    {hasSizes && !it.selected && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {sizes.length} taille{sizes.length > 1 ? 's' : ''} disponible{sizes.length > 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
 
                   {/* Quantité (seulement si sélectionné) */}
@@ -303,6 +327,42 @@ export default function AccessoiresModal({ accessories, onClose, onViewCart }: P
                     </div>
                   )}
                 </div>
+
+                {/* ── Sélecteur de taille (taille_standard avec plusieurs tailles) ── */}
+                {it.selected && hasSizes && (
+                  <div className="border-t border-sky-100 bg-white px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <p className="text-xs font-bold text-slate-600 mb-2">Choisissez une taille</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sizes.map((s: any, idx: number) => {
+                        const sizeName = s.name ?? s.label ?? `${s.width_cm}×${s.height_cm} cm`
+                        const isSelected = it.selectedSizeIdx === idx
+                        return (
+                          <button
+                            key={s.id ?? idx}
+                            onClick={() => selectSize(p.id, idx)}
+                            className={`
+                              text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all text-left
+                              ${isSelected
+                                ? 'border-sky-500 bg-sky-500 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300'
+                              }
+                            `}
+                          >
+                            <span className="block font-semibold">{sizeName}</span>
+                            {s.width_cm && s.height_cm && (
+                              <span className={`block text-[10px] mt-0.5 ${isSelected ? 'text-sky-100' : 'text-slate-400'}`}>
+                                {s.width_cm}×{s.height_cm} cm
+                              </span>
+                            )}
+                            <span className={`block text-[10px] font-bold mt-0.5 ${isSelected ? 'text-white' : 'text-sky-600'}`}>
+                              {formatPrice(s.price)}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Finitions (dépliables, seulement si sélectionné et s'il y en a) ── */}
                 {it.selected && hasFinitions && (
