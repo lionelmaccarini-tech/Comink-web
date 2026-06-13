@@ -33,6 +33,8 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
   const [hasSigned, setHasSigned] = useState(false)
   const drawing = useRef(false)
   const lastPos = useRef<{ x: number; y: number } | null>(null)
+  const onSignRef = useRef(onSign)
+  useEffect(() => { onSignRef.current = onSign }, [onSign])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -69,18 +71,14 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
       ctx.lineTo(pos.x, pos.y)
       ctx.stroke()
       lastPos.current = pos
-      if (!hasSigned) {
-        setHasSigned(true)
-        onSign(canvas.toDataURL())
-      } else {
-        onSign(canvas.toDataURL())
-      }
+      setHasSigned(true)
+      onSignRef.current(canvas.toDataURL())
     }
 
     const stop = () => {
       drawing.current = false
       lastPos.current = null
-      if (canvasRef.current) onSign(canvasRef.current.toDataURL())
+      if (canvasRef.current) onSignRef.current(canvasRef.current.toDataURL())
     }
 
     canvas.addEventListener('mousedown', start)
@@ -100,7 +98,8 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
       canvas.removeEventListener('touchmove', draw)
       canvas.removeEventListener('touchend', stop)
     }
-  }, [onSign, hasSigned])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // délibérément vide — le canvas n'est initialisé qu'une seule fois au montage
 
   const handleClear = () => {
     const canvas = canvasRef.current

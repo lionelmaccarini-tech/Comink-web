@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useDropzone } from 'react-dropzone'
 import {
   Trash2, ShoppingBag, ArrowRight, CheckCircle, Upload,
@@ -58,19 +58,27 @@ function StepIndicator({ current }: { current: Step }) {
           <div className="flex flex-col items-center gap-1 flex-shrink-0">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-extrabold border-2 transition-all ${
               current > s.n
-                ? 'bg-green-500 border-green-500 text-white'
+                ? 'border-green-500 text-white'
                 : current === s.n
-                ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
-                : 'bg-white border-slate-200 text-slate-400'
-            }`}>
+                ? 'text-white shadow-lg'
+                : 'text-slate-400'
+            }`} style={
+              current > s.n
+                ? { background: '#00AEEF', borderColor: '#00AEEF' }
+                : current === s.n
+                ? { background: '#00AEEF', borderColor: '#00AEEF' }
+                : { background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.15)' }
+            }>
               {current > s.n ? <CheckCircle className="w-4 h-4" /> : s.n}
             </div>
-            <span className={`text-[11px] font-semibold whitespace-nowrap ${current === s.n ? 'text-blue-600' : current > s.n ? 'text-green-600' : 'text-slate-400'}`}>
+            <span className={`text-[11px] font-semibold whitespace-nowrap ${current === s.n ? '' : current > s.n ? 'text-green-400' : 'text-slate-400'}`}
+              style={current === s.n ? { color: '#00AEEF' } : undefined}>
               {s.label}
             </span>
           </div>
           {i < steps.length - 1 && (
-            <div className={`flex-1 h-0.5 mb-4 mx-1 transition-all ${current > s.n + 1 || (current > s.n) ? 'bg-green-400' : 'bg-slate-200'}`} />
+            <div className={`flex-1 h-0.5 mb-4 mx-1 transition-all ${current > s.n + 1 || (current > s.n) ? 'bg-green-400' : ''}`}
+              style={!(current > s.n + 1 || current > s.n) ? { background: 'rgba(255,255,255,0.1)' } : undefined} />
           )}
         </React.Fragment>
       ))}
@@ -501,16 +509,20 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
           Visuels ({files.filter(f => f.file_url).length})
         </span>
         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-          totalCopies === item.quantity ? 'bg-green-100 text-green-700'
-          : totalCopies > item.quantity ? 'bg-red-100 text-red-600'
-          : 'bg-slate-100 text-slate-500'
-        }`}>
+          totalCopies === item.quantity ? 'text-emerald-400'
+          : totalCopies > item.quantity ? 'text-red-400'
+          : 'text-slate-400'
+        }`} style={
+          totalCopies === item.quantity ? { background: 'rgba(16,185,129,0.15)' }
+          : totalCopies > item.quantity ? { background: 'rgba(239,68,68,0.15)' }
+          : { background: 'rgba(255,255,255,0.08)' }
+        }>
           {totalCopies} / {item.quantity} ex.
         </span>
       </div>
 
       {/* ── Liste des visuels ── */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+      <div className="rounded-xl overflow-hidden divide-y" style={{ border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none' }}>
 
         {files.map((f, idx) => {
           const isUp    = uploadingId === f.id
@@ -534,7 +546,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
             : null
 
           return (
-            <div key={f.id} className="bg-white">
+            <div key={f.id} style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
               {/* ── Ligne principale ── */}
               <div className="flex items-center gap-3 px-3 py-2.5">
 
@@ -543,20 +555,20 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
 
                 {/* Thumbnail */}
                 {isUp ? (
-                  <div className="w-10 h-10 rounded-lg border border-slate-200 flex-shrink-0 bg-slate-50 flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#00AEEF' }} />
                   </div>
                 ) : f.file_thumb ? (
-                  <div className="w-10 h-10 rounded-lg border border-slate-200 overflow-hidden flex-shrink-0 bg-slate-100">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                     <img src={f.file_thumb} alt="" className="w-full h-full object-cover" />
                   </div>
                 ) : isPDF && f.file_url ? (
-                  <div className="w-10 h-10 rounded-lg border border-slate-200 overflow-hidden flex-shrink-0 bg-white relative">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                     <iframe src={f.file_url} title="PDF" className="absolute inset-0 pointer-events-none border-0"
                       style={{ width: 200, height: 200, transform: 'scale(0.2)', transformOrigin: '0 0' }} />
                   </div>
                 ) : (
-                  <div className="w-10 h-10 rounded-lg border border-slate-200 flex-shrink-0 bg-slate-50 flex flex-col items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex flex-col items-center justify-center" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                     <FileText className="w-4 h-4 text-slate-400" />
                   </div>
                 )}
@@ -565,17 +577,20 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                 <div className="flex-1 min-w-0">
                   {isUp ? (
                     <div className="space-y-1.5">
-                      <p className="text-xs text-blue-600 font-medium">
+                      <p className="text-xs font-medium" style={{ color: '#00AEEF' }}>
                         {uploadPhaseMap[f.id] === 'analyze' ? 'Analyse IA en cours…' : `Upload… ${uploadProgressMap[f.id] ?? 0}%`}
                       </p>
-                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div className={`h-1.5 rounded-full transition-all duration-200 ${uploadPhaseMap[f.id] === 'analyze' ? 'bg-violet-500 w-full animate-pulse' : 'bg-blue-500'}`}
-                          style={{ width: uploadPhaseMap[f.id] === 'upload' ? `${uploadProgressMap[f.id] ?? 0}%` : '100%' }} />
+                      <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                        <div className={`h-1.5 rounded-full transition-all duration-200 ${uploadPhaseMap[f.id] === 'analyze' ? 'bg-violet-500 w-full animate-pulse' : ''}`}
+                          style={{
+                            ...(uploadPhaseMap[f.id] !== 'analyze' ? { background: '#00AEEF' } : {}),
+                            width: uploadPhaseMap[f.id] === 'upload' ? `${uploadProgressMap[f.id] ?? 0}%` : '100%',
+                          }} />
                       </div>
                     </div>
                   ) : (
                     <>
-                      <p className="text-xs text-slate-700 font-medium truncate leading-tight">
+                      <p className="text-xs font-medium truncate leading-tight text-white">
                         {f.page_index && f.total_pages
                           ? <><span className="text-slate-400 font-normal">p.{f.page_index}/{f.total_pages} — </span>{f.file_name}</>
                           : f.file_name}
@@ -584,11 +599,15 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                         {/* Dimensions détectées + badge conformité */}
                         {f.file_info?.width_mm ? (
                           <span className={`inline-flex items-center gap-1 text-[10px] font-semibold rounded px-1 py-0.5 ${
-                            dimStatus === 'ok'    ? 'bg-emerald-50 text-emerald-700'
-                            : dimStatus === 'bleed' ? 'bg-emerald-50 text-emerald-600'
-                            : dimStatus === 'error' ? 'bg-red-50 text-red-600'
+                            dimStatus === 'ok'    ? 'text-emerald-400'
+                            : dimStatus === 'bleed' ? 'text-emerald-400'
+                            : dimStatus === 'error' ? 'text-red-400'
                             : 'text-slate-400'
-                          }`}>
+                          }`} style={
+                            dimStatus === 'ok' || dimStatus === 'bleed' ? { background: 'rgba(16,185,129,0.15)' }
+                            : dimStatus === 'error' ? { background: 'rgba(239,68,68,0.15)' }
+                            : undefined
+                          }>
                             {dimStatus === 'ok'    && '✓ '}
                             {dimStatus === 'bleed' && '✓ '}
                             {dimStatus === 'error' && '⚠ '}
@@ -599,7 +618,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                           </span>
                         ) : null}
                         {f.file_url && !dimStatus && (
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${hasIssue ? 'text-orange-500' : 'text-green-600'}`}>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${hasIssue ? 'text-orange-400' : 'text-emerald-400'}`}>
                             {hasIssue ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle className="w-3 h-3" />}
                             {hasIssue ? (cs === 'RGB' ? 'RGB' : 'Vérifier') : 'OK'}
                           </span>
@@ -610,17 +629,17 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                         const cmyk = slotAnalysis[f.id].checks?.find((c: any) => c.id === 'color_mode')
                         if (!cmyk) return null
                         return cmyk.status === 'error' ? (
-                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 mt-1">
-                            <span className="text-red-500 text-[10px] font-black">🚫 RGB</span>
-                            <span className="text-[10px] text-red-600 font-semibold">NON CONFORME</span>
+                          <div className="flex items-center gap-1 rounded px-1.5 py-0.5 mt-1" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                            <span className="text-red-400 text-[10px] font-black">🚫 RGB</span>
+                            <span className="text-[10px] text-red-400 font-semibold">NON CONFORME</span>
                           </div>
                         ) : cmyk.status === 'ok' ? (
-                          <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 mt-1">
-                            <span className="text-emerald-600 text-[10px] font-bold">✓ CMJN conforme</span>
+                          <div className="flex items-center gap-1 rounded px-1.5 py-0.5 mt-1" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                            <span className="text-emerald-400 text-[10px] font-bold">✓ CMJN conforme</span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1">
-                            <span className="text-amber-600 text-[10px] font-semibold">⚠ {cmyk.message}</span>
+                          <div className="flex items-center gap-1 rounded px-1.5 py-0.5 mt-1" style={{ background: 'rgba(245,196,0,0.15)', border: '1px solid rgba(245,196,0,0.25)' }}>
+                            <span className="text-[10px] font-semibold" style={{ color: '#F5C400' }}>⚠ {cmyk.message}</span>
                           </div>
                         )
                       })()}
@@ -633,10 +652,10 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button type="button" onClick={() => updateCopies(f.id, f.copies - 1)}
                       disabled={f.copies <= minCopy}
-                      className="w-7 h-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-base transition-colors disabled:opacity-25 disabled:cursor-not-allowed">−</button>
-                    <span className="w-7 text-center text-sm font-bold text-slate-800">{f.copies}</span>
+                      className="w-7 h-7 rounded-lg text-slate-300 hover:text-white flex items-center justify-center font-bold text-base transition-colors disabled:opacity-25 disabled:cursor-not-allowed" style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)' }}>−</button>
+                    <span className="w-7 text-center text-sm font-bold text-white">{f.copies}</span>
                     <button type="button" onClick={() => updateCopies(f.id, f.copies + 1)}
-                      className="w-7 h-7 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-base transition-colors">+</button>
+                      className="w-7 h-7 rounded-lg text-slate-300 hover:text-white flex items-center justify-center font-bold text-base transition-colors" style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)' }}>+</button>
                     <span className="text-[10px] text-slate-400 ml-1">ex.</span>
                   </div>
                 )}
@@ -644,7 +663,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                 {/* Supprimer */}
                 {!isUp && (
                   <button type="button" onClick={() => removeSlot(f.id)}
-                    className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">
+                    className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-red-400 rounded-lg transition-colors flex-shrink-0" style={{ background: 'transparent' }}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -652,7 +671,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
 
               {/* ── Alertes sous la ligne (dépliables) ── */}
               {!isUp && f.file_url && (hasIssue || (vr && !vr.dimensionMatch && !scAcc && vr.suggestedScale) || (scAcc && f.file_scale)) && (
-                <div className="px-3 pb-2.5 space-y-1.5 bg-orange-50/60 border-t border-orange-100">
+                <div className="px-3 pb-2.5 space-y-1.5" style={{ background: 'rgba(245,158,11,0.08)', borderTop: '1px solid rgba(245,158,11,0.2)' }}>
                   {cs === 'RGB' && (
                     <p className="text-[11px] text-orange-600 font-semibold pt-2">⚠ RGB détecté — recommandé : CMYK pour impression optimale</p>
                   )}
@@ -665,7 +684,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
                           Accepter ×{vr.suggestedScale}
                         </button>
                         <button type="button" onClick={() => skipScale(f.id)}
-                          className="text-[11px] text-slate-500 hover:text-slate-700 px-2 py-1 transition-colors">
+                          className="text-[11px] text-slate-500 hover:text-slate-200 px-2 py-1 transition-colors">
                           Continuer quand même
                         </button>
                       </div>
@@ -693,14 +712,15 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
             <button
               type="button"
               onClick={() => addInputRef.current?.click()}
-              className="w-full flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-blue-50/50 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left"
+              style={{ background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <span className="text-[10px] font-bold text-slate-300 w-4 text-center">{files.filter(f=>f.file_url).length + 1}</span>
-              <div className="w-10 h-10 rounded-lg border-2 border-dashed border-blue-200 flex-shrink-0 flex items-center justify-center">
-                <Upload className="w-4 h-4 text-blue-300" />
+              <span className="text-[10px] font-bold text-slate-500 w-4 text-center">{files.filter(f=>f.file_url).length + 1}</span>
+              <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ border: '2px dashed rgba(0,174,239,0.4)' }}>
+                <Upload className="w-4 h-4" style={{ color: '#00AEEF' }} />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-blue-500">
+                <p className="text-xs font-semibold" style={{ color: '#00AEEF' }}>
                   {files.length === 0 ? 'Charger le premier visuel' : 'Ajouter un visuel'}
                 </p>
                 <p className="text-[10px] text-slate-400">
@@ -714,7 +734,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
 
       {/* Dépassement */}
       {totalCopies > item.quantity && (
-        <p className="text-[11px] text-red-600 font-semibold flex items-center gap-1">
+        <p className="text-[11px] text-red-400 font-semibold flex items-center gap-1">
           <AlertTriangle className="w-3 h-3" />
           Total ({totalCopies}) dépasse la quantité commandée ({item.quantity}) — ajustez les exemplaires ci-dessus
         </p>
@@ -722,7 +742,7 @@ function MultiFileZone({ item, onValidated }: FileZoneProps) {
 
       {/* Tout validé */}
       {allValid && (
-        <div className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
+        <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold">
           <CheckCircle className="w-4 h-4" />
           Tous les visuels sont validés — {totalCopies} exemplaires couverts
         </div>
@@ -939,17 +959,20 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
   return (
     <div className="mt-3">
       {uploading ? (
-        <div className="border-2 border-dashed border-blue-200 rounded-xl p-4 space-y-2.5 bg-blue-50">
+        <div className="border-2 rounded-xl p-4 space-y-2.5" style={{ borderColor: 'rgba(0,174,239,0.3)', background: 'rgba(0,174,239,0.06)' }}>
           <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 text-blue-500 animate-spin flex-shrink-0" />
-            <span className="text-sm text-blue-600 font-medium">
+            <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" style={{ color: '#00AEEF' }} />
+            <span className="text-sm font-medium" style={{ color: '#00AEEF' }}>
               {uploadPhase === 'upload' ? `Upload… ${uploadProgress}%` : 'Analyse IA en cours…'}
             </span>
           </div>
-          <div className="w-full bg-blue-100 rounded-full h-1.5 overflow-hidden">
+          <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <div
-              className={`h-1.5 rounded-full transition-all duration-200 ${uploadPhase === 'analyze' ? 'bg-violet-500 w-full animate-pulse' : 'bg-blue-500'}`}
-              style={{ width: uploadPhase === 'upload' ? `${uploadProgress}%` : '100%' }}
+              className={`h-1.5 rounded-full transition-all duration-200 ${uploadPhase === 'analyze' ? 'bg-violet-500 w-full animate-pulse' : ''}`}
+              style={{
+                ...(uploadPhase !== 'analyze' ? { background: '#00AEEF' } : {}),
+                width: uploadPhase === 'upload' ? `${uploadProgress}%` : '100%',
+              }}
             />
           </div>
         </div>
@@ -960,13 +983,13 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
           <div className="flex items-center gap-3">
             {/* Aperçu image base64 */}
             {thumbSrc && (
-              <div className="w-16 h-16 rounded-lg border border-slate-200 overflow-hidden flex-shrink-0 bg-slate-100">
+              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                 <img src={thumbSrc} alt="Aperçu" className="w-full h-full object-cover" />
               </div>
             )}
             {/* Aperçu PDF — blob en session ou URL Supabase persistée */}
             {!thumbSrc && isPDF && (pdfObjectUrl || item.file_url) && (
-              <div className="w-16 h-16 rounded-lg border border-slate-200 overflow-hidden flex-shrink-0 bg-white relative">
+              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                 <iframe
                   src={pdfObjectUrl ?? item.file_url}
                   title="Aperçu PDF"
@@ -977,7 +1000,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
             )}
             {/* Icône générique pour AI/EPS ou PDF sans URL */}
             {!thumbSrc && !(isPDF && (pdfObjectUrl || item.file_url)) && (
-              <div className="w-16 h-16 rounded-lg border border-slate-200 flex-shrink-0 bg-slate-50 flex flex-col items-center justify-center gap-1">
+              <div className="w-16 h-16 rounded-lg flex-shrink-0 flex flex-col items-center justify-center gap-1" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                 <FileText className="w-6 h-6 text-slate-400" />
                 <span className="text-[9px] font-bold text-slate-400 uppercase">
                   {item.file_name?.split('.').pop()?.toUpperCase() ?? 'FILE'}
@@ -991,22 +1014,24 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
           {(() => {
             const hasIssue = (!dimensionMatch && !scaleAccepted) || colorspace === 'RGB' || dpiStatus === 'error'
             const hasWarn  = dpiStatus === 'warn'
-            const bgClass  = hasIssue ? 'bg-orange-50 border-orange-200'
-                           : hasWarn  ? 'bg-yellow-50 border-yellow-200'
-                           : 'bg-green-50 border-green-200'
+            const cardStyle = hasIssue
+              ? { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }
+              : hasWarn
+              ? { background: 'rgba(245,196,0,0.08)', border: '1px solid rgba(245,196,0,0.2)' }
+              : { background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }
             return (
-              <div className={`rounded-xl p-3 flex items-start gap-3 border ${bgClass}`}>
+              <div className="rounded-xl p-3 flex items-start gap-3" style={cardStyle}>
                 {hasIssue ? (
                   <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
                 ) : hasWarn ? (
                   <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
                 ) : (
-                  <FileCheck className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  <FileCheck className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1 min-w-0 space-y-1">
                   {/* Ligne dimensions + colorspace + pages */}
                   {(dimW && dimH) || (colorspace && colorspace !== 'unknown') ? (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-400">
                       {dimW && dimH ? `${dimW}×${dimH} mm` : ''}
                       {colorspace && colorspace !== 'unknown' ? ` · ${colorspace}` : ''}
                       {valRes?.pages && valRes.pages > 1 ? ` · ${valRes.pages} pages` : ''}
@@ -1016,10 +1041,10 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
                   {/* Badge DPI */}
                   {dpi != null && (
                     <p className={`text-[11px] font-semibold flex items-center gap-1 ${
-                      dpiStatus === 'ok'    ? 'text-green-700'
-                    : dpiStatus === 'warn'  ? 'text-yellow-700'
-                    : dpiStatus === 'error' ? 'text-red-600'
-                    : 'text-slate-400'}`}>
+                      dpiStatus === 'ok'    ? 'text-emerald-400'
+                    : dpiStatus === 'warn'  ? ''
+                    : dpiStatus === 'error' ? 'text-red-400'
+                    : 'text-slate-400'}`} style={dpiStatus === 'warn' ? { color: '#F5C400' } : undefined}>
                       {dpiStatus === 'ok'    ? '✓' : '⚠'}
                       {dpi} DPI
                       {dpiStatus === 'ok'    ? ' — bonne résolution' : ''}
@@ -1033,7 +1058,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
 
                   {/* Avertissement colorspace */}
                   {colorspace === 'RGB' && (
-                    <p className="text-[11px] text-orange-600 font-semibold">
+                    <p className="text-[11px] font-semibold" style={{ color: '#F5C400' }}>
                       ⚠ RGB détecté — recommandé : CMYK pour impression optimale
                     </p>
                   )}
@@ -1047,11 +1072,11 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
 
           {/* Dimension mismatch — avec ou sans mise à l'échelle possible */}
           {!dimensionMatch && !scaleAccepted && dimW && dimH && (
-            <div className={`rounded-xl p-3 border ${suggestedScale ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-300'}`}>
-              <p className={`text-xs font-bold mb-1 ${suggestedScale ? 'text-orange-700' : 'text-red-700'}`}>
+            <div className="rounded-xl p-3" style={suggestedScale ? { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' } : { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <p className="text-xs font-bold mb-1" style={suggestedScale ? { color: '#F5C400' } : { color: '#f87171' }}>
                 {suggestedScale ? '⚠ Format différent de la commande' : '⚠ Format fichier incompatible'}
               </p>
-              <p className="text-[11px] text-slate-600 mb-2">
+              <p className="text-[11px] text-slate-400 mb-2">
                 Fichier : <strong>{Math.round((dimW as number)/10)}×{Math.round((dimH as number)/10)} cm</strong>
                 {item.width_cm && item.height_cm && (
                   <> — Commande : <strong>{item.width_cm}×{item.height_cm} cm</strong></>
@@ -1059,7 +1084,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
               </p>
               {suggestedScale ? (
                 <>
-                  <p className="text-[11px] text-orange-600 mb-3">
+                  <p className="text-[11px] mb-3" style={{ color: '#F5C400' }}>
                     Les proportions correspondent — mise à l'échelle ×{suggestedScale} possible
                     {suggestedScale < 1
                       ? ` (réduction au ${Math.round(suggestedScale * 100)}%)`
@@ -1076,7 +1101,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
                     </button>
                     <button
                       onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
-                      className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5"
+                      className="text-xs text-slate-500 hover:text-slate-200 px-2 py-1.5"
                     >
                       Continuer sans mise à l'échelle
                     </button>
@@ -1084,12 +1109,12 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
                 </>
               ) : (
                 <>
-                  <p className="text-[11px] text-red-600 mb-2">
+                  <p className="text-[11px] mb-2" style={{ color: '#f87171' }}>
                     Les proportions ne correspondent pas — vérifiez le fichier ou contactez-nous.
                   </p>
                   <button
                     onClick={() => { setScaleAccepted(true); onValidated({ file_validated: true }) }}
-                    className="text-[11px] text-slate-500 hover:text-slate-700 underline"
+                    className="text-[11px] text-slate-500 hover:text-slate-200 underline"
                   >
                     Continuer quand même (je confirme les dimensions)
                   </button>
@@ -1098,7 +1123,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
             </div>
           )}
           {scaleAccepted && item.file_scale && (
-            <p className="text-[11px] text-orange-600 font-semibold px-1">
+            <p className="text-[11px] font-semibold px-1" style={{ color: '#F5C400' }}>
               ⚠ Mise à l'échelle ×{item.file_scale} sera appliquée à la production
             </p>
           )}
@@ -1111,30 +1136,34 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
                 const cmyk = claudeAnalysis.checks?.find((c: any) => c.id === 'color_mode')
                 if (!cmyk) return null
                 return cmyk.status === 'error' ? (
-                  <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg px-2.5 py-2">
-                    <span className="text-red-500 flex-shrink-0 font-black text-sm">🚫</span>
+                  <div className="flex items-start gap-2 rounded-lg px-2.5 py-2" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <span className="flex-shrink-0 font-black text-sm" style={{ color: '#f87171' }}>🚫</span>
                     <div>
-                      <p className="text-xs font-black text-red-700">FICHIER RGB — NON CONFORME IMPRESSION</p>
-                      <p className="text-[11px] text-red-600">{cmyk.message}</p>
+                      <p className="text-xs font-black" style={{ color: '#f87171' }}>FICHIER RGB — NON CONFORME IMPRESSION</p>
+                      <p className="text-[11px] text-red-400">{cmyk.message}</p>
                     </div>
                   </div>
                 ) : cmyk.status === 'ok' ? (
-                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
-                    <span className="text-emerald-500 font-black text-sm">✓</span>
-                    <p className="text-xs font-bold text-emerald-700">CMJN — Mode couleur conforme</p>
+                  <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                    <span className="font-black text-sm text-emerald-400">✓</span>
+                    <p className="text-xs font-bold text-emerald-400">CMJN — Mode couleur conforme</p>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                    <span className="text-amber-500 text-sm">⚠</span>
-                    <p className="text-xs font-semibold text-amber-700">{cmyk.message}</p>
+                  <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(245,196,0,0.1)', border: '1px solid rgba(245,196,0,0.25)' }}>
+                    <span className="text-sm" style={{ color: '#F5C400' }}>⚠</span>
+                    <p className="text-xs font-semibold" style={{ color: '#F5C400' }}>{cmyk.message}</p>
                   </div>
                 )
               })()}
               {/* Score global */}
-              <div className={`flex items-center justify-between text-xs font-bold px-2.5 py-1.5 rounded-lg ${
-                claudeAnalysis.status === 'ok' ? 'bg-emerald-50 text-emerald-700' :
-                claudeAnalysis.status === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
-              }`}>
+              <div className="flex items-center justify-between text-xs font-bold px-2.5 py-1.5 rounded-lg"
+                style={
+                  claudeAnalysis.status === 'ok'
+                    ? { background: 'rgba(16,185,129,0.1)', color: '#10b981' }
+                    : claudeAnalysis.status === 'warning'
+                    ? { background: 'rgba(245,196,0,0.1)', color: '#F5C400' }
+                    : { background: 'rgba(239,68,68,0.1)', color: '#f87171' }
+                }>
                 <span className="text-[11px] font-medium truncate max-w-[200px]">{claudeAnalysis.summary}</span>
                 <span className="font-black ml-2 flex-shrink-0">{claudeAnalysis.score}/100</span>
               </div>
@@ -1144,7 +1173,7 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
           {/* Re-upload */}
           <div {...getRootProps()} className="cursor-pointer">
             <input {...getInputProps()} />
-            <button className="text-[11px] text-blue-500 hover:text-blue-700 flex items-center gap-1 px-1">
+            <button className="text-[11px] flex items-center gap-1 px-1 transition-colors" style={{ color: '#00AEEF' }}>
               <Upload className="w-3 h-3" /> Remplacer le fichier
             </button>
           </div>
@@ -1152,16 +1181,17 @@ function SingleFileZone({ item, onValidated }: FileZoneProps) {
       ) : (
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
-            isDragActive ? 'border-blue-400 bg-blue-50' : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/40'
-          }`}
+          className="border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all"
+          style={isDragActive
+            ? { borderColor: '#00AEEF', background: 'rgba(0,174,239,0.08)' }
+            : { borderColor: 'rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}
         >
           <input {...getInputProps()} />
           <Upload className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs font-medium text-slate-300">
             {isDragActive ? 'Déposez ici…' : 'Déposez votre fichier ou cliquez'}
           </p>
-          <p className="text-[10px] text-slate-400 mt-1">PDF, AI, EPS, JPG, PNG, TIFF · Max 500 MB</p>
+          <p className="text-[10px] text-slate-500 mt-1">PDF, AI, EPS, JPG, PNG, TIFF · Max 500 MB</p>
         </div>
       )}
     </div>
@@ -1183,13 +1213,20 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
   const [hasSigned, setHasSigned] = useState(false)
   const drawing = useRef(false)
   const lastPos = useRef<{ x: number; y: number } | null>(null)
+  // Ref stable pour éviter que le useEffect se relance à chaque re-render
+  // (ce qui effacerait le canvas après chaque coup de crayon)
+  const onSignRef = useRef(onSign)
+  useEffect(() => { onSignRef.current = onSign }, [onSign])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
+    // Fond blanc pour que la signature soit visible et s'exporte correctement dans le PDF
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.strokeStyle = '#1e293b'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
@@ -1219,18 +1256,14 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
       ctx.lineTo(pos.x, pos.y)
       ctx.stroke()
       lastPos.current = pos
-      if (!hasSigned) {
-        setHasSigned(true)
-        onSign(canvas.toDataURL())
-      } else {
-        onSign(canvas.toDataURL())
-      }
+      setHasSigned(true)
+      onSignRef.current(canvas.toDataURL())
     }
 
     const stop = () => {
       drawing.current = false
       lastPos.current = null
-      if (canvasRef.current) onSign(canvasRef.current.toDataURL())
+      if (canvasRef.current) onSignRef.current(canvasRef.current.toDataURL())
     }
 
     canvas.addEventListener('mousedown', start)
@@ -1250,20 +1283,22 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
       canvas.removeEventListener('touchmove', draw)
       canvas.removeEventListener('touchend', stop)
     }
-  }, [onSign, hasSigned])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // délibérément vide — le canvas n'est initialisé qu'une seule fois au montage
 
   const handleClear = () => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
     setHasSigned(false)
     onSign('')
   }
 
   return (
     <div className="space-y-2">
-      <div className="relative border-2 border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+      <div className="relative rounded-xl overflow-hidden" style={{ border: '2px solid rgba(255,255,255,0.2)' }}>
         <canvas
           ref={canvasRef}
           width={600}
@@ -1281,7 +1316,7 @@ function SignatureCanvas({ onSign }: { onSign: (dataUrl: string) => void }) {
       </div>
       <button
         onClick={handleClear}
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
       >
         <RotateCcw className="w-3.5 h-3.5" /> Effacer la signature
       </button>
@@ -1302,13 +1337,14 @@ function AddrField({
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">{label}</label>
+      <label className="block text-[11px] font-semibold mb-0.5" style={{ color: '#00AEEF' }}>{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 text-white placeholder-slate-500"
+        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}
       />
     </div>
   )
@@ -1317,11 +1353,12 @@ function AddrField({
 function CountrySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">Pays</label>
+      <label className="block text-[11px] font-semibold mb-0.5" style={{ color: '#00AEEF' }}>Pays</label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        className="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 text-white"
+        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}
       >
         {COUNTRIES_LIST.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
       </select>
@@ -1336,10 +1373,18 @@ function getFinitionLabels(item: CartItem): string[] {
   const sf = (item as any).selectedFinitions as Record<string, string | string[]> | undefined
   const sd = (item as any).selectedDelai as { label?: string; days?: number } | null | undefined
   const ss = (item as any).selectedSides as Record<string, string[]> | undefined
-  const finitionGroups = (item.product?.finitions ?? []) as Array<{
-    id: string; label: string; display_type: string
-    options: Array<{ id: string; label: string; default_selected?: boolean }>
-  }>
+
+  // Normalise les finitions DB (format plat {id,name} OU format structuré {id,options:[]})
+  const rawFinitions = (item.product?.finitions ?? []) as any[]
+  const finitionGroups: Array<{ id: string; label: string; options: Array<{ id: string; label: string }> }> =
+    rawFinitions.length === 0 ? [] :
+    rawFinitions[0]?.options !== undefined
+      ? rawFinitions
+      : rawFinitions.map((f: any) => ({
+          id:      f.id ?? '',
+          label:   f.name ?? f.label ?? '',
+          options: [{ id: (f.id ?? '') + '_opt', label: f.name ?? f.label ?? '' }],
+        }))
 
   if (sf) {
     for (const group of finitionGroups) {
@@ -1348,7 +1393,7 @@ function getFinitionLabels(item: CartItem): string[] {
       const ids = Array.isArray(sel) ? sel : [sel]
       if (ids.length === 0) continue
       const optLabels = ids
-        .map(id => group.options.find(o => o.id === id)?.label)
+        .map(id => (group.options ?? []).find(o => o.id === id)?.label)
         .filter(Boolean) as string[]
       if (optLabels.length) labels.push(`${group.label} : ${optLabels.join(', ')}`)
     }
@@ -1370,12 +1415,19 @@ function getFinitionLabels(item: CartItem): string[] {
     }
   }
 
+  // Repli : si aucune finition structurée, utiliser le résumé texte (devis restaurés)
+  if (labels.length === 0) {
+    const fl = (item as any).finitions_label as string | undefined
+    if (fl) return fl.split(' · ').filter(Boolean)
+  }
+
   return labels
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PanierClient() {
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { items, removeItem, updateQuantity, updateItem, clearCart, total, orderReference, setOrderReference } = useCart()
 
@@ -1434,9 +1486,12 @@ export default function PanierClient() {
         if (cfg?.payment?.card)       setPaymentMethod('card')
         else if (cfg?.payment?.alma)  setPaymentMethod('alma')
         else if (cfg?.payment?.wire)  setPaymentMethod('wire')
-        // Set default delivery method
-        if (cfg?.delivery?.parcel)      setDeliveryMethod('parcel')
-        else if (cfg?.delivery?.pickup) setDeliveryMethod('pickup')
+        // Mode de livraison : priorité au param URL (restauration de devis), sinon config globale
+        const urlDelivery = searchParams.get('delivery') as 'pickup' | 'parcel' | 'express' | null
+        if (urlDelivery && ['pickup', 'parcel', 'express'].includes(urlDelivery)) {
+          setDeliveryMethod(urlDelivery)
+        } else if (cfg?.delivery?.parcel)        setDeliveryMethod('parcel')
+        else if (cfg?.delivery?.pickup)  setDeliveryMethod('pickup')
         else if (cfg?.delivery?.express) setDeliveryMethod('express')
         setClientPaymentDeadline(cfg?.payment?.default_deadline_days ?? 0)
       })
@@ -1637,12 +1692,12 @@ export default function PanierClient() {
   // ── Empty cart ──
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-sky-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#09111f' }}>
         <div className="text-center py-20">
-          <ShoppingBag className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-700 mb-2">Votre panier est vide</h1>
-          <p className="text-slate-400 text-sm mb-6">Explorez notre catalogue pour trouver vos produits.</p>
-          <Link href="/catalogue" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2">
+          <ShoppingBag className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-slate-300 mb-2">Votre panier est vide</h1>
+          <p className="text-slate-500 text-sm mb-6">Explorez notre catalogue pour trouver vos produits.</p>
+          <Link href="/catalogue" className="text-white font-bold px-6 py-3 rounded-lg text-sm inline-flex items-center gap-2 transition-colors" style={{ background: '#00AEEF' }}>
             Voir le catalogue <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -1694,6 +1749,19 @@ export default function PanierClient() {
     }
   }
 
+  // ── Garantir un selectedDelai sur chaque item avant envoi au checkout ──────
+  // Si un item n'a pas de délai sélectionné, on prend le plus long délai standard du produit
+  const itemsWithDelai = items.map(item => {
+    const sd = (item as any).selectedDelai
+    if (sd?.days) return item                         // déjà renseigné
+    const delais: any[] = item.product?.delai_options ?? []
+    if (!delais.length) return item                   // produit sans délai
+    const standards = delais.filter((d: any) => !d.surcharge_percent || d.surcharge_percent === 0)
+    const pool = standards.length > 0 ? standards : delais
+    const defaultDelai = [...pool].sort((a: any, b: any) => b.days - a.days)[0]
+    return { ...item, selectedDelai: defaultDelai } as any
+  })
+
   // ── Stripe checkout ──
   const handleCheckout = async () => {
     setCheckingOut(true)
@@ -1704,7 +1772,7 @@ export default function PanierClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items,
+          items: itemsWithDelai,
           vatNumber,
           orderReference,
           billing: {
@@ -1751,7 +1819,7 @@ export default function PanierClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items,
+          items: itemsWithDelai,
           vatNumber,
           orderReference,
           billing:             { ...billingAddr, name: billingName, company: billingCompany },
@@ -1786,7 +1854,7 @@ export default function PanierClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items,
+          items: itemsWithDelai,
           vatNumber,
           orderReference,
           billing:             { ...billingAddr, name: billingName, company: billingCompany },
@@ -1918,9 +1986,9 @@ export default function PanierClient() {
   }
 
   return (
-    <div className="min-h-screen bg-sky-50">
+    <div className="min-h-screen" style={{ background: '#09111f' }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <h1 className="text-2xl font-extrabold text-slate-900 mb-6 text-center">
+        <h1 className="text-2xl font-extrabold text-white mb-6 text-center">
           Mon panier
         </h1>
 
@@ -1930,8 +1998,8 @@ export default function PanierClient() {
         {step === 1 && (
           <div className="space-y-6">
             {/* Global order reference */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">
+            <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <label className="block text-xs font-bold uppercase tracking-wide mb-1" style={{ color: '#00AEEF' }}>
                 Référence commande (optionnel)
               </label>
               <input
@@ -1939,23 +2007,24 @@ export default function PanierClient() {
                 value={orderReference}
                 onChange={e => setOrderReference(e.target.value)}
                 placeholder="Ex : COMM-2026-001, projet Salon, …"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-sm"
+                className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 max-w-sm text-white placeholder-slate-500"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}
               />
             </div>
 
             {/* Cart items */}
             <div className="space-y-4">
               {items.map(item => (
-                <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                <div key={item.id} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                   {/* Header : image + infos + prix */}
                   <div className="flex gap-4 items-start">
                     {item.product?.image_url && (
-                      <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+                      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }}>
                         <img src={item.product.image_url} alt={item.product?.name} className="w-full h-full object-cover" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-bold text-slate-900">{item.product?.name || 'Produit'}</h3>
+                      <h3 className="text-sm font-bold text-white">{item.product?.name || 'Produit'}</h3>
                       {(() => {
                         const sizes: any[] = item.product?.standard_sizes ?? []
                         // Si dimensions présentes → afficher avec label éventuel
@@ -1993,7 +2062,7 @@ export default function PanierClient() {
                         return (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {labels.map((label, i) => (
-                              <span key={i} className="inline-block text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                              <span key={i} className="inline-block text-[10px] font-semibold text-slate-300 rounded-full px-2 py-0.5" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
                                 {label}
                               </span>
                             ))}
@@ -2001,14 +2070,14 @@ export default function PanierClient() {
                         )
                       })()}
                       <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden text-xs">
+                        <div className="flex items-center rounded-lg overflow-hidden text-xs" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
                           <button type="button" onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                            className="px-2.5 py-1.5 hover:bg-slate-50 font-bold">−</button>
-                          <span className="px-3 py-1.5 border-x border-slate-200 font-bold">{item.quantity}</span>
+                            className="px-2.5 py-1.5 font-bold text-slate-300 hover:text-white transition-colors" style={{ background: 'rgba(255,255,255,0.04)' }}>−</button>
+                          <span className="px-3 py-1.5 font-bold text-white" style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', borderRight: '1px solid rgba(255,255,255,0.15)' }}>{item.quantity}</span>
                           <button type="button" onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="px-2.5 py-1.5 hover:bg-slate-50 font-bold">+</button>
+                            className="px-2.5 py-1.5 font-bold text-slate-300 hover:text-white transition-colors" style={{ background: 'rgba(255,255,255,0.04)' }}>+</button>
                         </div>
-                        <p className="text-sm font-bold text-blue-600 ml-auto">{formatPrice(item.total_price)} HTVA</p>
+                        <p className="text-sm font-bold ml-auto" style={{ color: '#00AEEF' }}>{formatPrice(item.total_price)} HTVA</p>
                       </div>
                     </div>
                   </div>
@@ -2020,7 +2089,8 @@ export default function PanierClient() {
                       value={item.reference ?? ''}
                       onChange={e => updateItem(item.id, { reference: e.target.value })}
                       placeholder="Votre référence pour cette ligne (optionnel)"
-                      className="w-full border border-slate-100 rounded-lg px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-slate-50"
+                      className="w-full rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder-slate-600"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
                     />
                   </div>
 
@@ -2031,20 +2101,20 @@ export default function PanierClient() {
                       onValidated={(patch) => updateItem(item.id, patch)}
                     />
                   ) : (
-                    <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100">
-                      <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <svg className="w-4 h-4 text-slate-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <p className="text-xs text-slate-500">Aucun visuel requis pour ce produit</p>
+                      <p className="text-xs text-slate-400">Aucun visuel requis pour ce produit</p>
                     </div>
                   )}
 
                   {/* Bouton supprimer — en bas de la carte, bien visible */}
-                  <div className="mt-3 pt-3 border-t border-slate-100">
+                  <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); removeItem(item.id) }}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Supprimer cette ligne
@@ -2056,26 +2126,26 @@ export default function PanierClient() {
 
             {/* Quote feedback */}
             {quoteSaved && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium flex items-center gap-2">
+              <div className="rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2 text-emerald-400" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
                 <CheckCircle className="w-4 h-4" />
                 Devis sauvegardé — consultez vos devis dans{' '}
                 <Link href="/compte" className="underline font-bold">votre compte</Link>
               </div>
             )}
             {quoteError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+              <div className="rounded-xl px-4 py-3 text-sm flex items-center gap-2 text-red-400" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
                 <AlertTriangle className="w-4 h-4" />
                 {quoteError}
                 {quoteError.includes('Connectez') && (
-                  <Link href="/auth/login" className="underline font-bold ml-1">Se connecter</Link>
+                  <Link href="/auth/login" className="underline font-bold ml-1" style={{ color: '#00AEEF' }}>Se connecter</Link>
                 )}
               </div>
             )}
 
             {/* ── Adresse de facturation ── */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="font-bold text-slate-900 mb-4 text-sm flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+            <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 className="font-bold text-white mb-4 text-sm flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: '#00AEEF' }}>1</span>
                 Adresse de facturation
               </h3>
               <div className="space-y-3">
@@ -2093,21 +2163,22 @@ export default function PanierClient() {
                 </div>
                 <CountrySelect value={billingAddr.country} onChange={setB('country')} />
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">N° TVA <span className="font-normal text-slate-400">(B2B — belge ou européen)</span></label>
+                  <label className="block text-[11px] font-semibold mb-0.5" style={{ color: '#00AEEF' }}>N° TVA <span className="font-normal text-slate-500">(B2B — belge ou européen)</span></label>
                   <input type="text" value={vatNumber} onChange={e => setVatNumber(e.target.value)} placeholder="BE0123456789 ou FR12345678901"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 text-white placeholder-slate-500"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }} />
                   {isBelgianVAT(vatNumber) && (
-                    <p className="text-[11px] text-blue-700 mt-1 font-semibold flex items-center gap-1">
+                    <p className="mt-1 font-semibold flex items-center gap-1 text-[11px]" style={{ color: '#00AEEF' }}>
                       <CheckCircle className="w-3 h-3" /> Numéro TVA belge — TVA 21% applicable
                     </p>
                   )}
                   {intraCommunity && (
-                    <p className="text-[11px] text-green-700 mt-1 font-semibold flex items-center gap-1">
+                    <p className="text-[11px] text-emerald-400 mt-1 font-semibold flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" /> TVA intracommunautaire — 0% appliqué
                     </p>
                   )}
                   {vatNumber && !isValidVAT(vatNumber) && (
-                    <p className="text-[11px] text-orange-600 mt-1 font-semibold flex items-center gap-1">
+                    <p className="text-[11px] mt-1 font-semibold flex items-center gap-1" style={{ color: '#F5C400' }}>
                       <AlertTriangle className="w-3 h-3" /> Format non reconnu (ex : BE0123456789 ou FR12345678901)
                     </p>
                   )}
@@ -2116,9 +2187,9 @@ export default function PanierClient() {
             </div>
 
             {/* ── Adresse de livraison ── */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="font-bold text-slate-900 mb-3 text-sm flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">2</span>
+            <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 className="font-bold text-white mb-3 text-sm flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: '#00AEEF' }}>2</span>
                 Adresse de livraison
               </h3>
 
@@ -2128,14 +2199,18 @@ export default function PanierClient() {
                   <button
                     type="button"
                     onClick={() => setSelectedShippingId('same')}
-                    className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all ${selectedShippingId === 'same' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}
+                    className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all"
+                    style={selectedShippingId === 'same'
+                      ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                      : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}
                   >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedShippingId === 'same' ? 'border-blue-600' : 'border-slate-300'}`}>
-                      {selectedShippingId === 'same' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                    <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                      style={{ borderColor: selectedShippingId === 'same' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                      {selectedShippingId === 'same' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Identique à la facturation</p>
-                      {billingAddr.line1 && <p className="text-xs text-slate-500">{billingAddr.line1}, {billingAddr.city}</p>}
+                      <p className="text-sm font-semibold text-white">Identique à la facturation</p>
+                      {billingAddr.line1 && <p className="text-xs text-slate-400">{billingAddr.line1}, {billingAddr.city}</p>}
                     </div>
                   </button>
 
@@ -2145,18 +2220,22 @@ export default function PanierClient() {
                       key={addr.id}
                       type="button"
                       onClick={() => setSelectedShippingId(addr.id)}
-                      className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all ${selectedShippingId === addr.id ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}
+                      className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all"
+                      style={selectedShippingId === addr.id
+                        ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                        : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}
                     >
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedShippingId === addr.id ? 'border-blue-600' : 'border-slate-300'}`}>
-                        {selectedShippingId === addr.id && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                      <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                        style={{ borderColor: selectedShippingId === addr.id ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                        {selectedShippingId === addr.id && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                          <span className="text-xs font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{addr.label}</span>
-                          {addr.is_default && <span className="text-xs font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Par défaut</span>}
+                          <span className="text-xs font-bold text-slate-300 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>{addr.label}</span>
+                          {addr.is_default && <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(0,174,239,0.15)', color: '#00AEEF' }}>Par défaut</span>}
                         </div>
-                        <p className="text-sm font-semibold text-slate-800">{addr.name}</p>
-                        <p className="text-xs text-slate-500">{addr.line1}, {addr.postal_code} {addr.city} · {addr.country}</p>
+                        <p className="text-sm font-semibold text-white">{addr.name}</p>
+                        <p className="text-xs text-slate-400">{addr.line1}, {addr.postal_code} {addr.city} · {addr.country}</p>
                       </div>
                     </button>
                   ))}
@@ -2165,12 +2244,16 @@ export default function PanierClient() {
                   <button
                     type="button"
                     onClick={() => setSelectedShippingId('new')}
-                    className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all ${selectedShippingId === 'new' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}
+                    className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all"
+                    style={selectedShippingId === 'new'
+                      ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                      : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}
                   >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedShippingId === 'new' ? 'border-blue-600' : 'border-slate-300'}`}>
-                      {selectedShippingId === 'new' ? <div className="w-2 h-2 rounded-full bg-blue-600" /> : <span className="text-[10px] text-slate-400 font-bold">+</span>}
+                    <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                      style={{ borderColor: selectedShippingId === 'new' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                      {selectedShippingId === 'new' ? <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} /> : <span className="text-[10px] text-slate-500 font-bold">+</span>}
                     </div>
-                    <p className="text-sm font-semibold text-slate-600">Nouvelle adresse</p>
+                    <p className="text-sm font-semibold text-slate-300">Nouvelle adresse</p>
                   </button>
 
                   {/* Formulaire nouvelle adresse inline */}
@@ -2191,9 +2274,9 @@ export default function PanierClient() {
               ) : (
                 /* Pas d'adresses sauvegardées: checkbox + formulaire conditionnel */
                 <>
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer mb-3">
+                  <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer mb-3">
                     <input type="checkbox" checked={shipSameAsBill} onChange={e => setShipSameAsBill(e.target.checked)}
-                      className="w-4 h-4 rounded accent-blue-600" />
+                      className="w-4 h-4 rounded accent-[#00AEEF]" />
                     Identique à l'adresse de facturation
                   </label>
                   {!shipSameAsBill && (
@@ -2215,44 +2298,52 @@ export default function PanierClient() {
 
             {/* ── Mode de livraison ── */}
             {payDeliveryConfig && (
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
-                <h3 className="font-bold text-slate-900 mb-3 text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">3</span>
+              <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <h3 className="font-bold text-white mb-3 text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: '#00AEEF' }}>3</span>
                   Mode de livraison
                 </h3>
                 <div className="space-y-2">
                   {/* Pickup */}
                   {payDeliveryConfig.delivery.pickup && (
                     <div role="button" tabIndex={0} onClick={() => setDeliveryMethod('pickup')} onKeyDown={e => e.key === 'Enter' && setDeliveryMethod('pickup')}
-                      className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer ${deliveryMethod === 'pickup' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${deliveryMethod === 'pickup' ? 'border-blue-600' : 'border-slate-300'}`}>
-                        {deliveryMethod === 'pickup' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                      className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer"
+                      style={deliveryMethod === 'pickup'
+                        ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                        : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                      <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                        style={{ borderColor: deliveryMethod === 'pickup' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                        {deliveryMethod === 'pickup' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                       </div>
-                      <MapPin className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                      <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">Enlèvement atelier</p>
+                        <p className="text-sm font-semibold text-white">Enlèvement atelier</p>
                         {payDeliveryConfig.delivery.atelier_address && (
-                          <p className="text-xs text-slate-500">{payDeliveryConfig.delivery.atelier_address}</p>
+                          <p className="text-xs text-slate-400">{payDeliveryConfig.delivery.atelier_address}</p>
                         )}
                       </div>
-                      <span className="text-sm font-bold text-green-600 flex-shrink-0">Gratuit</span>
+                      <span className="text-sm font-bold text-emerald-400 flex-shrink-0">Gratuit</span>
                     </div>
                   )}
 
                   {/* Parcel */}
                   {payDeliveryConfig.delivery.parcel && (
                     <div role="button" tabIndex={0} onClick={() => setDeliveryMethod('parcel')} onKeyDown={e => e.key === 'Enter' && setDeliveryMethod('parcel')}
-                      className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer ${deliveryMethod === 'parcel' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${deliveryMethod === 'parcel' ? 'border-blue-600' : 'border-slate-300'}`}>
-                        {deliveryMethod === 'parcel' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                      className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer"
+                      style={deliveryMethod === 'parcel'
+                        ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                        : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                      <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                        style={{ borderColor: deliveryMethod === 'parcel' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                        {deliveryMethod === 'parcel' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                       </div>
-                      <Package className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                      <Package className="w-4 h-4 text-slate-400 flex-shrink-0" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">Livraison colis 48h</p>
-                        <p className="text-xs text-slate-500">Belgique min {payDeliveryConfig.delivery.parcel_be_min}€ / Europe min {payDeliveryConfig.delivery.parcel_eu_min}€</p>
+                        <p className="text-sm font-semibold text-white">Livraison colis 48h</p>
+                        <p className="text-xs text-slate-400">Belgique min {payDeliveryConfig.delivery.parcel_be_min}€ / Europe min {payDeliveryConfig.delivery.parcel_eu_min}€</p>
                       </div>
                       {deliveryMethod === 'parcel' && deliveryCost > 0 && (
-                        <span className="text-sm font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full flex-shrink-0">{formatPrice(deliveryCost)}</span>
+                        <span className="text-sm font-bold flex-shrink-0 px-2 py-0.5 rounded-full" style={{ color: '#00AEEF', background: 'rgba(0,174,239,0.15)' }}>{formatPrice(deliveryCost)}</span>
                       )}
                     </div>
                   )}
@@ -2260,24 +2351,28 @@ export default function PanierClient() {
                   {/* Express */}
                   {payDeliveryConfig.delivery.express && (
                     <div role="button" tabIndex={0} onClick={() => setDeliveryMethod('express')} onKeyDown={e => e.key === 'Enter' && setDeliveryMethod('express')}
-                      className={`w-full text-left border rounded-xl p-3 flex items-start gap-3 transition-all cursor-pointer ${deliveryMethod === 'express' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${deliveryMethod === 'express' ? 'border-blue-600' : 'border-slate-300'}`}>
-                        {deliveryMethod === 'express' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                      className="w-full text-left rounded-xl p-3 flex items-start gap-3 transition-all cursor-pointer"
+                      style={deliveryMethod === 'express'
+                        ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                        : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                      <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ borderColor: deliveryMethod === 'express' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                        {deliveryMethod === 'express' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                       </div>
-                      <Truck className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+                      <Truck className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">Livraison express</p>
-                        <p className="text-xs text-slate-500">{payDeliveryConfig.delivery.express_per_km}€/km · min {payDeliveryConfig.delivery.express_min}€</p>
+                        <p className="text-sm font-semibold text-white">Livraison express</p>
+                        <p className="text-xs text-slate-400">{payDeliveryConfig.delivery.express_per_km}€/km · min {payDeliveryConfig.delivery.express_min}€</p>
                         {deliveryMethod === 'express' && (
                           <div className="mt-2 space-y-1.5" onClick={e => e.stopPropagation()}>
                             {kmLoading ? (
-                              <div className="flex items-center gap-2 text-xs text-blue-600">
+                              <div className="flex items-center gap-2 text-xs" style={{ color: '#00AEEF' }}>
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                 Calcul de la distance…
                               </div>
                             ) : kmError ? (
                               <div className="space-y-1">
-                                <p className="text-xs text-orange-600 flex items-center gap-1">
+                                <p className="text-xs flex items-center gap-1" style={{ color: '#F5C400' }}>
                                   <AlertTriangle className="w-3.5 h-3.5" />
                                   {kmError} — saisie manuelle :
                                 </p>
@@ -2287,38 +2382,39 @@ export default function PanierClient() {
                                     value={deliveryKm || ''}
                                     onChange={e => setDeliveryKm(Number(e.target.value))}
                                     placeholder="km"
-                                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-20 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 text-white"
+                                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}
                                   />
-                                  <span className="text-xs text-slate-500">km (aller)</span>
+                                  <span className="text-xs text-slate-400">km (aller)</span>
                                 </div>
                               </div>
                             ) : deliveryKm > 0 ? (
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs text-slate-600 font-semibold">
+                                <span className="text-xs text-slate-300 font-semibold">
                                   {deliveryKm} km (calculé automatiquement)
                                 </span>
-                                <span className="text-sm font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                                <span className="text-sm font-bold px-2 py-0.5 rounded-full" style={{ color: '#00AEEF', background: 'rgba(0,174,239,0.15)' }}>
                                   {formatPrice(deliveryCost)}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => { setDeliveryKm(0); setKmError(null) }}
-                                  className="text-[10px] text-slate-400 hover:text-slate-600 underline"
+                                  className="text-[10px] text-slate-500 hover:text-slate-300 underline"
                                 >
                                   Recalculer
                                 </button>
                               </div>
                             ) : !payDeliveryConfig?.delivery?.atelier_address ? (
-                              <p className="text-xs text-orange-500 flex items-center gap-1">
+                              <p className="text-xs flex items-center gap-1" style={{ color: '#F5C400' }}>
                                 <AlertTriangle className="w-3 h-3" />
                                 Adresse atelier non configurée dans l'admin
                               </p>
                             ) : !deliveryAddressForKm ? (
-                              <p className="text-xs text-slate-400 italic">
+                              <p className="text-xs text-slate-500 italic">
                                 Renseignez votre adresse de livraison pour calculer la distance
                               </p>
                             ) : (
-                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                 Calcul en cours…
                               </div>
@@ -2340,7 +2436,10 @@ export default function PanierClient() {
                         onChange={e => setShipInClientName(e.target.checked)}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${shipInClientName ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300 group-hover:border-blue-400'}`}>
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors`}
+                        style={shipInClientName
+                          ? { background: '#00AEEF', borderColor: '#00AEEF' }
+                          : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.3)' }}>
                         {shipInClientName && (
                           <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
@@ -2349,8 +2448,8 @@ export default function PanierClient() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">Expédier en mon nom / au nom de ma société</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Le colis sera expédié sous votre nom ou celui de votre société (expédition aveugle — le nom Comink n'apparaîtra pas).</p>
+                      <p className="text-sm font-semibold text-white">Expédier en mon nom / au nom de ma société</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Le colis sera expédié sous votre nom ou celui de votre société (expédition aveugle — le nom Comink n'apparaîtra pas).</p>
                     </div>
                   </label>
                 )}
@@ -2362,7 +2461,8 @@ export default function PanierClient() {
               <button
                 onClick={handleConvertToQuote}
                 disabled={savingQuote}
-                className="w-full sm:w-auto border border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                className="w-full sm:w-auto font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                style={{ border: '1px solid #00AEEF', color: '#00AEEF', background: 'transparent' }}
               >
                 {savingQuote ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                 Convertir en devis
@@ -2370,7 +2470,8 @@ export default function PanierClient() {
               <button
                 onClick={() => setStep(2)}
                 disabled={!allFilesUploaded}
-                className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                className="w-full sm:flex-1 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                style={{ background: '#00AEEF' }}
               >
                 Continuer
                 <ChevronRight className="w-4 h-4" />
@@ -2388,10 +2489,10 @@ export default function PanierClient() {
         {step === 2 && (
           <div className="max-w-2xl mx-auto space-y-6">
             {/* BAT preview */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5" style={{ color: '#00AEEF' }} />
                   Bon À Tirer — Comink
                 </h2>
                 <div className="text-xs text-slate-400">
@@ -2399,20 +2500,21 @@ export default function PanierClient() {
                 </div>
               </div>
               {orderReference && (
-                <p className="text-xs text-slate-500 mb-3">Référence : <span className="font-semibold text-slate-700">{orderReference}</span></p>
+                <p className="text-xs text-slate-400 mb-3">Référence : <span className="font-semibold text-slate-200">{orderReference}</span></p>
               )}
 
               {/* Adresse de facturation */}
-              <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="flex items-start gap-8">
                   <div className="flex-1 min-w-0">
                     <div className="mb-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Client / Facturation</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Client / Facturation</p>
                       {billingName && !editingBilling && (
                         <button
                           type="button"
                           onClick={() => setEditingBilling(true)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-200 hover:border-blue-600 px-2.5 py-1 rounded-lg transition-all"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all text-white"
+                          style={{ color: '#00AEEF', background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.3)' }}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.5-6.5a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-.707.414l-3 1a1 1 0 01-1.293-1.293l1-3a2 2 0 01.414-.707z" /></svg>
                           Modifier adresse
@@ -2440,7 +2542,8 @@ export default function PanierClient() {
                           <button
                             type="button"
                             onClick={() => setEditingBilling(false)}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors mt-1"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition-colors mt-1"
+                          style={{ background: '#00AEEF' }}
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                             Valider l'adresse
@@ -2448,21 +2551,21 @@ export default function PanierClient() {
                         )}
                       </div>
                     ) : (
-                      <div className="text-xs text-slate-700 space-y-0.5">
-                        <p className="font-semibold">{billingName}{billingCompany ? ` — ${billingCompany}` : ''}</p>
+                      <div className="text-xs text-slate-300 space-y-0.5">
+                        <p className="font-semibold text-white">{billingName}{billingCompany ? ` — ${billingCompany}` : ''}</p>
                         {billingAddr.line1 && <p>{billingAddr.line1}{billingAddr.line2 ? `, ${billingAddr.line2}` : ''}</p>}
                         {billingAddr.city && <p>{billingAddr.postal_code} {billingAddr.city} · {billingAddr.country}</p>}
-                        {vatNumber && <p className="text-slate-500">TVA : {vatNumber}</p>}
+                        {vatNumber && <p className="text-slate-400">TVA : {vatNumber}</p>}
                       </div>
                     )}
                   </div>
                   <div className="flex-shrink-0 text-right">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Imprimeur</p>
-                    <div className="text-xs text-slate-700 space-y-0.5">
-                      <p className="font-semibold">Comink SRL</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Imprimeur</p>
+                    <div className="text-xs text-slate-300 space-y-0.5">
+                      <p className="font-semibold text-white">Comink SRL</p>
                       <p>Rue de Bruxelles 174h</p>
                       <p>4340 Awans · Belgique</p>
-                      <p className="text-slate-500">info@comink.be</p>
+                      <p className="text-slate-400">info@comink.be</p>
                     </div>
                   </div>
                 </div>
@@ -2480,24 +2583,24 @@ export default function PanierClient() {
                         : []
 
                   return (
-                    <div key={item.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div key={item.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
                       {/* En-tête ligne produit */}
-                      <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="flex items-center justify-between px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                         <div>
-                          <span className="text-xs font-bold text-slate-800">{item.product?.name || 'Produit'}</span>
+                          <span className="text-xs font-bold text-white">{item.product?.name || 'Produit'}</span>
                           {item.width_cm && item.height_cm && (
-                            <span className="ml-2 text-[10px] text-slate-500">{item.width_cm}×{item.height_cm} cm</span>
+                            <span className="ml-2 text-[10px] text-slate-400">{item.width_cm}×{item.height_cm} cm</span>
                           )}
                         </div>
                         <div className="text-right">
-                          <span className="text-xs font-bold text-slate-700">{item.quantity} ex.</span>
-                          <span className="ml-3 text-xs font-bold text-blue-700">{formatPrice(item.total_price)}</span>
+                          <span className="text-xs font-bold text-slate-300">{item.quantity} ex.</span>
+                          <span className="ml-3 text-xs font-bold" style={{ color: '#00AEEF' }}>{formatPrice(item.total_price)}</span>
                         </div>
                       </div>
 
                       {/* Visuels */}
                       {allFiles.length > 0 ? (
-                        <div className="divide-y divide-slate-50">
+                        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                           {allFiles.map(({ file, isSingle }, fi) => {
                             const a = (file as any).file_analysis
                             const cmykCheck  = a?.checks?.find((c: any) => c.id === 'color_mode')
@@ -2509,7 +2612,7 @@ export default function PanierClient() {
                             return (
                               <div key={(file as any).id ?? fi} className="flex items-start gap-3 px-3 py-2.5">
                                 {/* Miniature */}
-                                <div className="w-12 h-12 flex-shrink-0 rounded-lg border border-slate-200 overflow-hidden bg-slate-100 flex items-center justify-center">
+                                <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.06)' }}>
                                   {(file as any).file_thumb
                                     ? <img src={(file as any).file_thumb} alt="" className="w-full h-full object-cover" />
                                     : <FileText className="w-5 h-5 text-slate-300" />
@@ -2518,7 +2621,7 @@ export default function PanierClient() {
 
                                 {/* Infos fichier */}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[11px] font-semibold text-slate-700 truncate">
+                                  <p className="text-[11px] font-semibold text-slate-200 truncate">
                                     {(file as any).page_index && (file as any).total_pages
                                       ? <><span className="text-slate-400 font-normal">p.{(file as any).page_index}/{(file as any).total_pages} — </span>{(file as any).file_name}</>
                                       : (file as any).file_name || '—'}
@@ -2535,47 +2638,47 @@ export default function PanierClient() {
                                   {a && (
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {cmykCheck && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${cmykCheck.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={cmykCheck.status === 'ok' ? { background: 'rgba(16,185,129,0.15)', color: '#10b981' } : { background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
                                           {cmykCheck.status === 'ok' ? '✓ CMJN' : '✗ RGB'}
                                         </span>
                                       )}
                                       {dimCheck && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${dimCheck.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : dimCheck.status === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={dimCheck.status === 'ok' ? { background: 'rgba(16,185,129,0.15)', color: '#10b981' } : dimCheck.status === 'warning' ? { background: 'rgba(245,196,0,0.15)', color: '#F5C400' } : { background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
                                           {dimCheck.status === 'ok' ? '✓ Format' : `⚠ ${dimCheck.message?.slice(0, 30)}`}
                                         </span>
                                       )}
                                       {resCheck && resCheck.status !== 'ok' && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,196,0,0.15)', color: '#F5C400' }}>
                                           ⚠ Résolution
                                         </span>
                                       )}
                                       {bleedCheck && bleedCheck.status === 'error' && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
                                           ✗ Fonds perdus
                                         </span>
                                       )}
                                       {score != null && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ml-auto ${score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded ml-auto" style={score >= 80 ? { background: 'rgba(16,185,129,0.15)', color: '#10b981' } : score >= 60 ? { background: 'rgba(245,196,0,0.15)', color: '#F5C400' } : { background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
                                           {score}/100
                                         </span>
                                       )}
                                     </div>
                                   )}
                                   {!a && (file as any).file_url && (
-                                    <p className="text-[10px] text-slate-400 italic mt-1">Analyse non disponible</p>
+                                    <p className="text-[10px] text-slate-500 italic mt-1">Analyse non disponible</p>
                                   )}
                                 </div>
 
                                 {/* Copies */}
                                 <div className="flex-shrink-0 text-right">
-                                  <span className="text-xs font-bold text-slate-700">{(file as any).copies ?? item.quantity} ex.</span>
+                                  <span className="text-xs font-bold text-slate-300">{(file as any).copies ?? item.quantity} ex.</span>
                                 </div>
                               </div>
                             )
                           })}
                         </div>
                       ) : (
-                        <div className="px-3 py-2 text-[11px] text-slate-400 italic">Aucun fichier déposé</div>
+                        <div className="px-3 py-2 text-[11px] text-slate-500 italic">Aucun fichier déposé</div>
                       )}
                     </div>
                   )
@@ -2583,41 +2686,41 @@ export default function PanierClient() {
               </div>
 
               {/* Totals */}
-              <div className="space-y-1 text-sm border-t border-slate-100 pt-3 mb-4">
-                <div className="flex justify-between text-slate-600">
+              <div className="space-y-1 text-sm pt-3 mb-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="flex justify-between text-slate-400">
                   <span>Sous-total marchandise HTVA</span><span>{formatPrice(totalHTVA)}</span>
                 </div>
                 {Object.entries(vatGroups).sort(([a],[b]) => Number(a)-Number(b)).map(([rate, g]) => (
-                  <div key={rate} className="flex justify-between text-slate-600">
+                  <div key={rate} className="flex justify-between text-slate-400">
                     <span>TVA {rate}%{intraCommunity && Number(rate)===0 ? ' (intracom.)' : ''}</span>
                     <span>{formatPrice(calcVAT(g.htva, Number(rate)))}</span>
                   </div>
                 ))}
                 {deliveryMethod !== 'pickup' && deliveryCost > 0 && (<>
-                  <div className="flex justify-between text-slate-600">
+                  <div className="flex justify-between text-slate-400">
                     <span>Livraison HTVA</span><span>{formatPrice(deliveryCost)}</span>
                   </div>
                   {deliveryVAT > 0 && (
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-slate-400">
                       <span>TVA livraison {deliveryVatRate}%</span><span>{formatPrice(deliveryVAT)}</span>
                     </div>
                   )}
                 </>)}
-                <div className="flex justify-between font-extrabold text-slate-900 text-base pt-1 border-t border-slate-100">
-                  <span>Total TTC</span><span className="text-blue-600">{formatPrice(totalWithDelivery)}</span>
+                <div className="flex justify-between font-extrabold text-white text-base pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span>Total TTC</span><span style={{ color: '#00AEEF' }}>{formatPrice(totalWithDelivery)}</span>
                 </div>
               </div>
 
               {/* Disclaimer */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 mb-6">
+              <div className="rounded-xl p-3 text-xs mb-6" style={{ background: 'rgba(245,196,0,0.08)', border: '1px solid rgba(245,196,0,0.2)', color: '#F5C400' }}>
                 En signant ce BAT, vous confirmez avoir vérifié les fichiers, dimensions et contenu.
                 Comink ne peut être tenu responsable des erreurs après validation.
               </div>
 
               {/* Signature */}
               <div>
-                <p className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
-                  <Pen className="w-4 h-4 text-blue-600" /> Signez ici
+                <p className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                  <Pen className="w-4 h-4" style={{ color: '#00AEEF' }} /> Signez ici
                 </p>
                 <SignatureCanvas onSign={(url) => setSignatureDataUrl(url)} />
               </div>
@@ -2627,20 +2730,23 @@ export default function PanierClient() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep(1)}
-                className="w-full sm:w-auto border border-slate-200 text-slate-600 hover:border-slate-300 font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+                className="w-full sm:w-auto font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors text-slate-300"
+                style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'transparent' }}
               >
                 ← Retour
               </button>
               <button
                 onClick={handleDownloadBAT}
-                className="w-full sm:flex-1 border border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors"
+                className="w-full sm:flex-1 font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors"
+                style={{ border: '1px solid #00AEEF', color: '#00AEEF', background: 'transparent' }}
               >
                 <FileText className="w-4 h-4" /> Télécharger le BAT (PDF)
               </button>
               <button
                 onClick={() => setStep(3)}
                 disabled={!signatureDataUrl || !billingName || !billingAddr.line1 || !billingAddr.city}
-                className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                className="w-full sm:flex-1 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                style={{ background: '#00AEEF' }}
               >
                 Valider et passer au paiement
                 <ChevronRight className="w-4 h-4" />
@@ -2662,72 +2768,72 @@ export default function PanierClient() {
             <div className="max-w-lg mx-auto space-y-5">
 
               {/* ── Résumé facturation (saisie à l'étape 1) ── */}
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <h3 className="font-bold text-white text-sm flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center">✓</span>
                     Facturation
                   </h3>
                   <button type="button" onClick={() => setStep(1)}
-                    className="text-xs text-blue-600 hover:underline font-semibold">
+                    className="text-xs font-semibold hover:underline" style={{ color: '#00AEEF' }}>
                     Modifier
                   </button>
                 </div>
-                <div className="text-xs text-slate-600 space-y-0.5">
+                <div className="text-xs text-slate-400 space-y-0.5">
                   {billingName
                     ? <>
-                        <p className="font-semibold text-slate-800">{billingName}{billingCompany ? ` — ${billingCompany}` : ''}</p>
-                        {billingAddr.line1 && <p className="text-slate-500">{billingAddr.line1}{billingAddr.line2 ? `, ${billingAddr.line2}` : ''}</p>}
-                        {billingAddr.city && <p className="text-slate-500">{billingAddr.postal_code} {billingAddr.city} · {billingAddr.country}</p>}
-                        {vatNumber && <p className="text-slate-400">TVA : {vatNumber}</p>}
+                        <p className="font-semibold text-white">{billingName}{billingCompany ? ` — ${billingCompany}` : ''}</p>
+                        {billingAddr.line1 && <p>{billingAddr.line1}{billingAddr.line2 ? `, ${billingAddr.line2}` : ''}</p>}
+                        {billingAddr.city && <p>{billingAddr.postal_code} {billingAddr.city} · {billingAddr.country}</p>}
+                        {vatNumber && <p className="text-slate-500">TVA : {vatNumber}</p>}
                       </>
-                    : <p className="text-slate-400 italic">Non renseignée — <button type="button" onClick={() => setStep(1)} className="text-blue-600 underline">compléter à l'étape 1</button></p>
+                    : <p className="text-slate-500 italic">Non renseignée — <button type="button" onClick={() => setStep(1)} className="underline" style={{ color: '#00AEEF' }}>compléter à l'étape 1</button></p>
                   }
                 </div>
               </div>
 
               {/* ── Résumé livraison (choisi à l'étape 1) ── */}
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <h3 className="font-bold text-white text-sm flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center">✓</span>
                     Livraison
                   </h3>
                   <button type="button" onClick={() => setStep(1)}
-                    className="text-xs text-blue-600 hover:underline font-semibold">
+                    className="text-xs font-semibold hover:underline" style={{ color: '#00AEEF' }}>
                     Modifier
                   </button>
                 </div>
-                <div className="text-xs text-slate-600 space-y-1">
+                <div className="text-xs text-slate-400 space-y-1">
                   {deliveryMethod === 'pickup' && (
-                    <p className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /><span className="font-semibold">Enlèvement atelier</span>{payDeliveryConfig?.delivery?.atelier_address && <span className="text-slate-400">· {payDeliveryConfig.delivery.atelier_address}</span>}</p>
+                    <p className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /><span className="font-semibold text-white">Enlèvement atelier</span>{payDeliveryConfig?.delivery?.atelier_address && <span className="text-slate-400">· {payDeliveryConfig.delivery.atelier_address}</span>}</p>
                   )}
                   {deliveryMethod === 'parcel' && (
-                    <p className="flex items-center gap-2"><Package className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /><span className="font-semibold">Livraison colis 48h</span>{deliveryCost > 0 && <span className="text-blue-600 font-bold">· {formatPrice(deliveryCost)} HTVA</span>}</p>
+                    <p className="flex items-center gap-2"><Package className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /><span className="font-semibold text-white">Livraison colis 48h</span>{deliveryCost > 0 && <span className="font-bold" style={{ color: '#00AEEF' }}>· {formatPrice(deliveryCost)} HTVA</span>}</p>
                   )}
                   {deliveryMethod === 'express' && (
-                    <p className="flex items-center gap-2"><Truck className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" /><span className="font-semibold">Livraison express</span>{deliveryCost > 0 && <span className="text-blue-600 font-bold">· {formatPrice(deliveryCost)} HTVA</span>}</p>
+                    <p className="flex items-center gap-2"><Truck className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /><span className="font-semibold text-white">Livraison express</span>{deliveryCost > 0 && <span className="font-bold" style={{ color: '#00AEEF' }}>· {formatPrice(deliveryCost)} HTVA</span>}</p>
                   )}
                   {deliveryMethod !== 'pickup' && (() => {
-                    if (selectedShippingId === 'same') return billingAddr.line1 ? <p className="text-slate-400 pl-5">{billingAddr.line1}, {billingAddr.postal_code} {billingAddr.city}</p> : null
-                    if (selectedShippingId === 'new') return shippingAddr.line1 ? <p className="text-slate-400 pl-5">{shippingAddr.line1}, {shippingAddr.postal_code} {shippingAddr.city}</p> : null
+                    if (selectedShippingId === 'same') return billingAddr.line1 ? <p className="text-slate-500 pl-5">{billingAddr.line1}, {billingAddr.postal_code} {billingAddr.city}</p> : null
+                    if (selectedShippingId === 'new') return shippingAddr.line1 ? <p className="text-slate-500 pl-5">{shippingAddr.line1}, {shippingAddr.postal_code} {shippingAddr.city}</p> : null
                     const saved = savedShippingAddrs.find(a => a.id === selectedShippingId)
-                    return saved ? <p className="text-slate-400 pl-5">{saved.line1}, {saved.postal_code} {saved.city}</p> : null
+                    return saved ? <p className="text-slate-500 pl-5">{saved.line1}, {saved.postal_code} {saved.city}</p> : null
                   })()}
-                  {shipInClientName && <p className="text-orange-600 font-semibold pl-5">Expédition en votre nom</p>}
+                  {shipInClientName && <p className="pl-5 font-semibold" style={{ color: '#F5C400' }}>Expédition en votre nom</p>}
                 </div>
               </div>
 
               {/* ── Mode de paiement ── */}
               {payDeliveryConfig && (
-                <div className="bg-white rounded-xl border border-slate-200 p-5">
-                  <h3 className="font-bold text-slate-900 mb-3 text-sm flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">2</span>
+                <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <h3 className="font-bold text-white mb-3 text-sm flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: '#00AEEF' }}>2</span>
                     Mode de paiement
                   </h3>
 
                   {clientPaymentDeadline > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3 text-xs text-blue-700">
+                    <div className="rounded-xl p-3 mb-3 text-xs" style={{ background: 'rgba(0,174,239,0.08)', border: '1px solid rgba(0,174,239,0.2)', color: '#00AEEF' }}>
                       Vous bénéficiez d&apos;un délai de paiement de <strong>{clientPaymentDeadline} jours</strong>. Votre commande sera traitée immédiatement.
                     </div>
                   )}
@@ -2736,14 +2842,18 @@ export default function PanierClient() {
                     {/* Carte bancaire */}
                     {payDeliveryConfig.payment.card && (
                       <button type="button" onClick={() => setPaymentMethod('card')}
-                        className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all ${paymentMethod === 'card' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'card' ? 'border-blue-600' : 'border-slate-300'}`}>
-                          {paymentMethod === 'card' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                        className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all"
+                        style={paymentMethod === 'card'
+                          ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                          : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                        <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                          style={{ borderColor: paymentMethod === 'card' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                          {paymentMethod === 'card' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                         </div>
-                        <CreditCard className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                        <CreditCard className="w-4 h-4 text-slate-400 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-800">Carte bancaire</p>
-                          <p className="text-xs text-slate-500">Visa / Mastercard · Paiement sécurisé Stripe</p>
+                          <p className="text-sm font-semibold text-white">Carte bancaire</p>
+                          <p className="text-xs text-slate-400">Visa / Mastercard · Paiement sécurisé Stripe</p>
                         </div>
                       </button>
                     )}
@@ -2751,14 +2861,18 @@ export default function PanierClient() {
                     {/* Alma 3× */}
                     {payDeliveryConfig.payment.alma && (
                       <button type="button" onClick={() => setPaymentMethod('alma')}
-                        className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all ${paymentMethod === 'alma' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'alma' ? 'border-blue-600' : 'border-slate-300'}`}>
-                          {paymentMethod === 'alma' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                        className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all"
+                        style={paymentMethod === 'alma'
+                          ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                          : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                        <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                          style={{ borderColor: paymentMethod === 'alma' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                          {paymentMethod === 'alma' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                         </div>
-                        <CreditCard className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                        <CreditCard className="w-4 h-4 text-purple-400 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-800">Alma 3×</p>
-                          <p className="text-xs text-slate-500">Payez en 3 fois sans frais · {formatPrice(totalWithDelivery / 3)}/mois</p>
+                          <p className="text-sm font-semibold text-white">Alma 3×</p>
+                          <p className="text-xs text-slate-400">Payez en 3 fois sans frais · {formatPrice(totalWithDelivery / 3)}/mois</p>
                         </div>
                       </button>
                     )}
@@ -2766,16 +2880,20 @@ export default function PanierClient() {
                     {/* Virement bancaire */}
                     {payDeliveryConfig.payment.wire && (
                       <button type="button" onClick={() => setPaymentMethod('wire')}
-                        className={`w-full text-left border rounded-xl p-3 flex items-center gap-3 transition-all ${paymentMethod === 'wire' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'wire' ? 'border-blue-600' : 'border-slate-300'}`}>
-                          {paymentMethod === 'wire' && <div className="w-2 h-2 rounded-full bg-blue-600" />}
+                        className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition-all"
+                        style={paymentMethod === 'wire'
+                          ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)', boxShadow: '0 0 0 1px rgba(0,174,239,0.3)' }
+                          : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                        <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                          style={{ borderColor: paymentMethod === 'wire' ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                          {paymentMethod === 'wire' && <div className="w-2 h-2 rounded-full" style={{ background: '#00AEEF' }} />}
                         </div>
-                        <Building className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                        <Building className="w-4 h-4 text-slate-400 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-800">Virement bancaire</p>
+                          <p className="text-sm font-semibold text-white">Virement bancaire</p>
                           {clientPaymentDeadline > 0
-                            ? <p className="text-xs text-slate-500">Délai : {clientPaymentDeadline} jours</p>
-                            : <p className="text-xs text-slate-500">Paiement par virement</p>
+                            ? <p className="text-xs text-slate-400">Délai : {clientPaymentDeadline} jours</p>
+                            : <p className="text-xs text-slate-400">Paiement par virement</p>
                           }
                         </div>
                       </button>
@@ -2785,48 +2903,49 @@ export default function PanierClient() {
               )}
 
               {/* ── Récapitulatif commande ── */}
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
-                <h3 className="font-bold text-slate-900 mb-3 text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">3</span>
+              <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <h3 className="font-bold text-white mb-3 text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: '#00AEEF' }}>3</span>
                   Récapitulatif
                 </h3>
                 <div className="space-y-1.5 mb-4">
                   {items.map(item => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-slate-600 truncate mr-4">{item.product?.name || 'Produit'} ×{item.quantity}</span>
-                      <span className="font-semibold text-slate-800 flex-shrink-0">{formatPrice(item.total_price)}</span>
+                      <span className="text-slate-400 truncate mr-4">{item.product?.name || 'Produit'} ×{item.quantity}</span>
+                      <span className="font-semibold text-white flex-shrink-0">{formatPrice(item.total_price)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="border-t border-slate-100 pt-3 space-y-1 text-sm">
-                  <div className="flex justify-between text-slate-500"><span>Sous-total marchandise HTVA</span><span>{formatPrice(totalHTVA)}</span></div>
+                <div className="pt-3 space-y-1 text-sm" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="flex justify-between text-slate-400"><span>Sous-total marchandise HTVA</span><span>{formatPrice(totalHTVA)}</span></div>
                   {Object.entries(vatGroups).sort(([a],[b]) => Number(a)-Number(b)).map(([rate, g]) => (
-                    <div key={rate} className="flex justify-between text-slate-500">
+                    <div key={rate} className="flex justify-between text-slate-400">
                       <span>TVA {rate}%{intraCommunity && Number(rate)===0 ? ' (intracommunautaire)' : ''}</span>
                       <span>{formatPrice(calcVAT(g.htva, Number(rate)))}</span>
                     </div>
                   ))}
                   {deliveryMethod !== 'pickup' && deliveryCost > 0 && (<>
-                    <div className="flex justify-between text-slate-500">
+                    <div className="flex justify-between text-slate-400">
                       <span>Livraison HTVA ({deliveryMethod === 'parcel' ? 'Colis 48h' : 'Express'})</span>
                       <span>{formatPrice(deliveryCost)}</span>
                     </div>
                     {deliveryVAT > 0 && (
-                      <div className="flex justify-between text-slate-500">
+                      <div className="flex justify-between text-slate-400">
                         <span>TVA livraison {deliveryVatRate}%</span>
                         <span>{formatPrice(deliveryVAT)}</span>
                       </div>
                     )}
                   </>)}
-                  <div className="flex justify-between font-extrabold text-slate-900 border-t border-slate-100 pt-2 text-base">
+                  <div className="flex justify-between font-extrabold text-white pt-2 text-base" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <span>Total TTC</span>
-                    <span className="text-blue-600">{formatPrice(totalWithDelivery)}</span>
+                    <span style={{ color: '#00AEEF' }}>{formatPrice(totalWithDelivery)}</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-col gap-3">
-                <button onClick={() => setStep(2)} className="w-full border border-slate-200 text-slate-600 hover:border-slate-300 font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors">
+                <button onClick={() => setStep(2)} className="w-full font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors text-slate-300"
+                  style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'transparent' }}>
                   ← Retour
                 </button>
                 <button
@@ -2836,7 +2955,8 @@ export default function PanierClient() {
                     else                                handleWireCheckout()
                   }}
                   disabled={checkingOut || !billingAddr.line1 || !billingAddr.city || !billingName}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm">
+                  className="w-full disabled:opacity-60 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                  style={{ background: '#00AEEF' }}>
                   {checkingOut
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirection…</>
                     : paymentMethod === 'wire'
@@ -2848,8 +2968,8 @@ export default function PanierClient() {
                 </button>
               </div>
               <div className="space-y-1.5">
-                <p className="flex items-center gap-2 text-xs text-slate-400"><CheckCircle className="w-3 h-3 text-green-500" /> Paiement sécurisé</p>
-                <p className="flex items-center gap-2 text-xs text-slate-400"><CheckCircle className="w-3 h-3 text-green-500" /> Production locale à Liège</p>
+                <p className="flex items-center gap-2 text-xs text-slate-500"><CheckCircle className="w-3 h-3 text-emerald-400" /> Paiement sécurisé</p>
+                <p className="flex items-center gap-2 text-xs text-slate-500"><CheckCircle className="w-3 h-3 text-emerald-400" /> Production locale à Liège</p>
               </div>
             </div>
         )}
