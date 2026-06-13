@@ -45,6 +45,17 @@ function getMonthDays(year: number, month: number): (Date | null)[] {
   return arr
 }
 
+function AnalysisScoreBadge({ analysis }: { analysis: NonNullable<ProductionLine['file_analysis']> }) {
+  const color = analysis.status === 'ok' ? '#10b981' : analysis.status === 'warning' ? '#f59e0b' : '#ef4444'
+  const bg    = analysis.status === 'ok' ? '#d1fae5' : analysis.status === 'warning' ? '#fef3c7' : '#fee2e2'
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+      style={{ backgroundColor: bg, color }}>
+      {analysis.status === 'ok' ? '✓' : '⚠'} {analysis.score}%
+    </span>
+  )
+}
+
 export default function CalendarView({ lines, statuses, onSelect, initialDate }: Props) {
   const [mode, setMode] = useState<'week' | 'month'>('week')
 
@@ -129,6 +140,18 @@ export default function CalendarView({ lines, statuses, onSelect, initialDate }:
           {/* Order + client */}
           <p className="text-[10px] text-slate-500 truncate">#{line.order_number}</p>
           <p className="text-[10px] text-slate-500 truncate">{line.client_name}</p>
+          {/* Références client */}
+          {(line.order_reference || line.line_reference) && (
+            <p className="text-[9px] font-bold text-blue-600 truncate">
+              🏷 {line.line_reference || line.order_reference}
+            </p>
+          )}
+          {/* Score analyse fichier */}
+          {line.file_analysis && (
+            <div className="pt-0.5">
+              <AnalysisScoreBadge analysis={line.file_analysis} />
+            </div>
+          )}
           {/* Status pill */}
           <div className="flex items-center justify-between gap-1 pt-0.5">
             <span

@@ -378,7 +378,7 @@ export default function JDEAdminPage() {
             </Field>
             <Field label="Notes">
               <textarea value={clientForm.notes} onChange={e => setClientForm(f => ({ ...f, notes: e.target.value }))}
-                className="input resize-none" rows={2} />
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#F5C200] resize-none" rows={2} />
             </Field>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowClientModal(false)}

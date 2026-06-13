@@ -39,6 +39,8 @@ export interface ProductionLine {
     checks: Array<{ id: string; label: string; status: 'ok' | 'warning' | 'error'; message: string; detail?: string }>
     recommendations?: string[]
   } | null
+  line_reference?: string | null
+  order_reference?: string | null
   sort_order: number
   created_at: string
   updated_at: string

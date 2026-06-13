@@ -118,7 +118,7 @@ function LineCard({ line, onClick, onUpdate, canEditDate, selected, onToggleSele
           )}
         </div>
 
-      <div className="flex items-center justify-between gap-1 mb-1.5">
+      <div className="flex items-center justify-between gap-1 mb-1">
         <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
           #{line.order_number}
         </span>
@@ -126,6 +126,22 @@ function LineCard({ line, onClick, onUpdate, canEditDate, selected, onToggleSele
           ×{line.quantity}
         </span>
       </div>
+
+      {/* Références client */}
+      {(line.order_reference || line.line_reference) && (
+        <div className="flex items-center gap-1 flex-wrap mb-1">
+          {line.order_reference && (
+            <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded truncate max-w-full" title={`Réf. commande : ${line.order_reference}`}>
+              🏷 {line.order_reference}
+            </span>
+          )}
+          {line.line_reference && line.line_reference !== line.order_reference && (
+            <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded truncate max-w-full" title={`Réf. ligne : ${line.line_reference}`}>
+              🏷 {line.line_reference}
+            </span>
+          )}
+        </div>
+      )}
 
       <p className="text-[10px] text-slate-500 truncate mb-1.5">{line.client_name}</p>
 

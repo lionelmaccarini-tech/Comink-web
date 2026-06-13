@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
     userId = inviteData?.user?.id ?? null
   }
 
-  // Create JDE client
-  const { data: client, error: clientError } = await supabase
+  // Create JDE client — utiliser adminClient pour bypass RLS
+  const { data: client, error: clientError } = await adminClient
     .from('jde_clients')
     .insert({
       user_id: userId,

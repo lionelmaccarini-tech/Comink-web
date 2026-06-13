@@ -119,12 +119,29 @@ export async function POST(req: NextRequest) {
     // ── Odoo sync (non-blocking) ──────────────────────────────────────────────
     try {
       const intraCommunity = vatNumber && isIntraCommunityVAT(vatNumber)
+
+      // Lookup odoo_account_code par product_id
+      const productIds = [...new Set((items as any[]).map((i: any) => i.product?.id).filter(Boolean))] as string[]
+      let accountCodeByProduct: Record<string, string> = {}
+      if (productIds.length > 0) {
+        const { data: prods } = await supabase
+          .from('products')
+          .select('id, odoo_account_code')
+          .in('id', productIds)
+        if (prods) {
+          for (const p of prods) {
+            if (p.odoo_account_code) accountCodeByProduct[p.id] = p.odoo_account_code
+          }
+        }
+      }
+
       const odooItems: OdooOrderItem[] = []
 
       for (const item of items as any[]) {
-        const vatRate    = intraCommunity ? 0 : (item.product?.vat_rate ?? 21)
-        const finitions  = buildFinitionsSummary(item)
-        const delaiDays  = item.selectedDelai?.days ?? null
+        const vatRate         = intraCommunity ? 0 : (item.product?.vat_rate ?? 21)
+        const finitions       = buildFinitionsSummary(item)
+        const delaiDays       = item.selectedDelai?.days ?? null
+        const accountCode     = item.product?.id ? (accountCodeByProduct[item.product.id] ?? null) : null
 
         // Multi-file mode: one Odoo line per file copy
         if (Array.isArray(item.files) && item.files.length > 0) {
@@ -138,6 +155,7 @@ export async function POST(req: NextRequest) {
               height_cm:         item.height_cm     ?? null,
               finitions_summary: finitions.length ? finitions : null,
               delai_days:        delaiDays,
+              odoo_account_code: accountCode,
             })
           }
         } else {
@@ -150,6 +168,7 @@ export async function POST(req: NextRequest) {
             height_cm:         item.height_cm     ?? null,
             finitions_summary: finitions.length ? finitions : null,
             delai_days:        delaiDays,
+            odoo_account_code: accountCode,
           })
         }
       }
@@ -214,10 +233,13 @@ export async function POST(req: NextRequest) {
               file_url:          f.file_url   || item.file_url   || null,
               file_name:         f.file_name  || item.file_name  || null,
               file_thumb:        f.file_thumb || item.file_thumb || null,
+              file_analysis:     f.file_analysis  || item.file_analysis  || null,
               status_id:         initialStatus?.id || null,
               due_date:          dueDate,
               delai_label:       delaiLabel,
               finitions_summary: finitions.length ? finitions : null,
+              line_reference:    item.reference    || null,
+              order_reference:   orderReference    || null,
               sort_order:        sortOrder++,
               is_subcontracted:  item.product?.is_subcontracted ?? false,
             })
@@ -239,10 +261,13 @@ export async function POST(req: NextRequest) {
             file_url:          item.file_url     || null,
             file_name:         item.file_name    || null,
             file_thumb:        item.file_thumb   || null,
+            file_analysis:     item.file_analysis || null,
             status_id:         initialStatus?.id || null,
             due_date:          dueDate,
             delai_label:       delaiLabel,
             finitions_summary: finitions.length ? finitions : null,
+            line_reference:    item.reference    || null,
+            order_reference:   orderReference    || null,
             sort_order:        sortOrder++,
             is_subcontracted:  item.product?.is_subcontracted ?? false,
           })

@@ -22,6 +22,8 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
   const [lightbox, setLightbox] = useState(false)
   const [analysing, setAnalysing] = useState(false)
   const [analysisError, setAnalysisError] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   // Sync if line changes
   useEffect(() => {
@@ -56,6 +58,25 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
   function handleNotesBlur() {
     if (notes !== (line.notes ?? '')) {
       onUpdate(line.id, { notes })
+    }
+  }
+
+  async function handleSyncOrderStatus() {
+    if (!line.order_id) return
+    setSyncing(true)
+    setSyncMsg(null)
+    try {
+      const res = await fetch('/api/production/orders/sync-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: line.order_id }),
+      })
+      const data = await res.json()
+      setSyncMsg({ ok: data.changed ?? res.ok, text: data.message ?? 'Erreur' })
+    } catch {
+      setSyncMsg({ ok: false, text: 'Erreur réseau' })
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -237,6 +258,18 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
                 <span className="text-slate-500">Numéro</span>
                 <span className="font-bold text-slate-800">#{line.order_number}</span>
               </div>
+              {line.order_reference && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Réf. commande</span>
+                  <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-xs">{line.order_reference}</span>
+                </div>
+              )}
+              {line.line_reference && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Réf. ligne</span>
+                  <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded text-xs">{line.line_reference}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Client</span>
                 <span className="font-semibold text-slate-800">{line.client_name}</span>
@@ -246,6 +279,24 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
                 <span className="text-slate-600 text-xs">{line.client_email}</span>
               </div>
             </div>
+            {/* Sync statut commande */}
+            {line.order_id && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <button
+                  onClick={handleSyncOrderStatus}
+                  disabled={syncing}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', syncing && 'animate-spin')} />
+                  {syncing ? 'Synchronisation…' : 'Sync statut commande'}
+                </button>
+                {syncMsg && (
+                  <p className={cn('text-xs mt-1 font-semibold', syncMsg.ok ? 'text-emerald-600' : 'text-orange-500')}>
+                    {syncMsg.text}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Finitions choisies */}
@@ -356,7 +407,7 @@ export default function LineDrawer({ line, statuses, staff, onUpdate, onClose, u
               onBlur={handleNotesBlur}
               rows={4}
               placeholder="Ajouter des notes de production…"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 

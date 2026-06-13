@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
         delai_days:        i.selectedDelai?.days  ?? null,
         delai_label:       i.selectedDelai?.label ?? null,
         finitions_summary: buildFinitionsSummary(i),
+        line_reference:    i.reference    || null,
         // Odoo sync — pricing
         unit_price_ht:     i.unit_price   ?? 0,
         vat_rate:          vatRate,

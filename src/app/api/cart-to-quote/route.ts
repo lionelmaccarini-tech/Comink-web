@@ -82,6 +82,10 @@ export async function POST(req: NextRequest) {
         width_cm:        item.width_cm ?? item.width,
         height_cm:       item.height_cm ?? item.height,
         finitions_label: finParts.join(' · ') || undefined,
+        reference:       item.reference  || undefined,
+        file_url:        item.file_url   || undefined,
+        file_name:       item.file_name  || undefined,
+        file_analysis:   item.file_analysis ?? undefined,
       }
     })
 

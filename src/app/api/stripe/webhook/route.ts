@@ -93,6 +93,21 @@ export async function POST(req: NextRequest) {
             vat_rate: number
           }>
 
+          // Lookup odoo_account_code par product_id
+          const productIds = [...new Set(itemsFull.map(i => i.product_id).filter(Boolean))] as string[]
+          let accountCodeByProduct: Record<string, string> = {}
+          if (productIds.length > 0) {
+            const { data: prods } = await supabase
+              .from('products')
+              .select('id, odoo_account_code')
+              .in('id', productIds)
+            if (prods) {
+              for (const p of prods) {
+                if (p.odoo_account_code) accountCodeByProduct[p.id] = p.odoo_account_code
+              }
+            }
+          }
+
           const odooItems: OdooOrderItem[] = itemsFull.map(item => ({
             product_name:      item.product_name,
             quantity:          item.quantity,
@@ -102,6 +117,7 @@ export async function POST(req: NextRequest) {
             height_cm:         item.height_cm      ?? null,
             finitions_summary: item.finitions_summary?.length ? item.finitions_summary : null,
             delai_days:        item.delai_days      ?? null,
+            odoo_account_code: item.product_id ? (accountCodeByProduct[item.product_id] ?? null) : null,
           }))
 
           syncOrderToOdoo({
@@ -142,6 +158,7 @@ export async function POST(req: NextRequest) {
             delai_days: number | null
             delai_label: string | null
             finitions_summary: Array<{ label: string; value: string }> | null
+            line_reference: string | null
           }>
 
           const { data: initialStatus } = await supabase
@@ -150,6 +167,25 @@ export async function POST(req: NextRequest) {
             .eq('is_initial', true)
             .limit(1)
             .single()
+
+          const orderRef = session.metadata?.order_reference || null
+
+          // Pré-charger les analyses depuis le cache (par file_url)
+          const fileUrls = itemsFull.map(i => i.file_url).filter(Boolean) as string[]
+          let analysisCache: Record<string, any> = {}
+          if (fileUrls.length > 0) {
+            try {
+              const { data: cached } = await supabase
+                .from('file_analysis_cache')
+                .select('file_url, analysis')
+                .in('file_url', fileUrls)
+              if (cached) {
+                for (const row of cached) {
+                  analysisCache[row.file_url] = row.analysis
+                }
+              }
+            } catch { /* non bloquant */ }
+          }
 
           const lines = itemsFull.map((item, idx) => ({
             order_id:          order.id,
@@ -170,6 +206,9 @@ export async function POST(req: NextRequest) {
             due_date:          item.delai_days ? addWorkingDaysISO(item.delai_days) : null,
             delai_label:       item.delai_label   || null,
             finitions_summary: item.finitions_summary?.length ? item.finitions_summary : null,
+            line_reference:    item.line_reference || null,
+            order_reference:   orderRef,
+            file_analysis:     item.file_url ? (analysisCache[item.file_url] ?? null) : null,
             sort_order:        idx,
           }))
 

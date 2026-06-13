@@ -17,6 +17,8 @@ export interface OdooInvoiceLine {
   quantity?: number
   price_unit?: number       // HTVA
   tax_rate_percent?: number // 0, 6, 21 …
+  /** Odoo account code (ex: "700000") — resolved to account_id at invoice creation time */
+  odoo_account_code?: string
 }
 
 export interface OdooInvoiceInput {
@@ -146,6 +148,62 @@ async function getTaxIds(
   return ids
 }
 
+// ─── Compte comptable ────────────────────────────────────────────────────────
+
+const _accountCache: Record<string, number | null> = {}
+
+async function getAccountId(
+  url: string, db: string, uid: number, apiKey: string,
+  code: string,
+): Promise<number | null> {
+  if (code in _accountCache) return _accountCache[code]
+
+  const accounts = await callKw(url, db, uid, apiKey, 'account.account', 'search_read',
+    [[['code', '=', code], ['deprecated', '=', false]]],
+    { fields: ['id', 'code', 'name'], limit: 1 },
+  ) as Array<{ id: number; code: string; name: string }>
+
+  const id = accounts[0]?.id ?? null
+  if (id) {
+    console.log(`[Odoo] Compte "${accounts[0].name}" (code=${code}, id=${id})`)
+  } else {
+    console.warn(`[Odoo] Compte comptable code="${code}" introuvable dans Odoo`)
+  }
+  _accountCache[code] = id
+  return id
+}
+
+// ─── Journal ─────────────────────────────────────────────────────────────────
+
+let _journalId: number | null | undefined = undefined // undefined = not yet looked up
+
+async function getInvoiceJournalId(
+  url: string, db: string, uid: number, apiKey: string,
+): Promise<number | null> {
+  if (_journalId !== undefined) return _journalId
+
+  const journalName = process.env.ODOO_INVOICE_JOURNAL
+  if (!journalName) {
+    _journalId = null
+    return null
+  }
+
+  const journals = await callKw(url, db, uid, apiKey, 'account.journal', 'search_read',
+    [[['name', '=', journalName], ['type', '=', 'sale']]],
+    { fields: ['id', 'name'], limit: 1 },
+  ) as Array<{ id: number; name: string }>
+
+  if (!journals.length) {
+    console.warn(`[Odoo] Journal "${journalName}" introuvable — utilisation du journal par défaut`)
+    _journalId = null
+    return null
+  }
+
+  console.log(`[Odoo] Journal "${journals[0].name}" (id=${journals[0].id}) sélectionné`)
+  _journalId = journals[0].id
+  return _journalId
+}
+
 // ─── Currency ─────────────────────────────────────────────────────────────────
 
 const _currencyCache: Record<string, number> = {}
@@ -200,16 +258,27 @@ export async function createOdooInvoice(input: OdooInvoiceInput): Promise<OdooIn
 
       // Regular accounting line
       const taxIds = await getTaxIds(url, db, uid, apiKey, line.tax_rate_percent ?? 0)
+
+      // Compte comptable (optionnel) — lookup par code si fourni
+      let accountId: number | null = null
+      if (line.odoo_account_code) {
+        accountId = await getAccountId(url, db, uid, apiKey, line.odoo_account_code)
+      }
+
       return [0, 0, {
         name:       line.name,
         quantity:   line.quantity   ?? 1,
         price_unit: line.price_unit ?? 0,
         tax_ids:    taxIds.length ? [[6, 0, taxIds]] : [],
+        ...(accountId ? { account_id: accountId } : {}),
       }]
     })
   )
 
-  // 3. Create draft invoice
+  // 3. Resolve journal (optional)
+  const journalId = await getInvoiceJournalId(url, db, uid, apiKey)
+
+  // 4. Create draft invoice
   const invoiceId = await callKw(url, db, uid, apiKey, 'account.move', 'create',
     [{
       move_type:           'out_invoice',
@@ -220,11 +289,12 @@ export async function createOdooInvoice(input: OdooInvoiceInput): Promise<OdooIn
       payment_reference:   input.order_number,
       invoice_line_ids:    invoiceLines,
       currency_id:         await getCurrencyId(url, db, uid, apiKey, input.currency ?? 'EUR'),
+      ...(journalId ? { journal_id: journalId } : {}),
       ...(input.invoice_date_due ? { invoice_date_due: input.invoice_date_due } : {}),
     }],
   ) as number
 
-  // 4. Fetch the generated name
+  // 5. Fetch the generated name
   const result = await callKw(url, db, uid, apiKey, 'account.move', 'read',
     [[invoiceId]], { fields: ['id', 'name'] },
   ) as Array<{ id: number; name: string }>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createServiceClient } from '@/lib/supabase/server'
 import fs from 'fs'
 import path from 'path'
 
@@ -205,6 +206,20 @@ export async function POST(req: NextRequest) {
       if (strictMatch) analysis = JSON.parse(strictMatch[0])
       else throw new Error('Impossible de parser la réponse JSON')
     }
+    // ── Cache l'analyse dans Supabase pour usage par le webhook Stripe ─────────
+    if (file_url) {
+      try {
+        const supabase = await createServiceClient()
+        await supabase.from('file_analysis_cache').upsert(
+          { file_url, analysis },
+          { onConflict: 'file_url' }
+        )
+      } catch (cacheErr) {
+        // Non bloquant — log only
+        console.warn('[analyze-file] cache upsert failed:', cacheErr)
+      }
+    }
+
     return NextResponse.json(analysis)
 
   } catch (err: any) {

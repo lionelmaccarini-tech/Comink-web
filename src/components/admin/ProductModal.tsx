@@ -103,6 +103,8 @@ interface ProductForm {
   delai_options: DelaiOption[]
   // Finitions par côté
   sides_finitions: SidesFinitions | null
+  // Comptabilité
+  odoo_account_code: string
   // SEO
   seo_title: string
   seo_description: string
@@ -149,6 +151,7 @@ const emptyForm = (): ProductForm => ({
   bleed_mm: 3,
   finition_groups: [],
   sides_finitions: null,
+  odoo_account_code: '',
   seo_title: '',
   seo_description: '',
   seo_keywords: '',
@@ -312,6 +315,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         finition_groups: normalizeFinitions(product.finitions ?? []),
         sides_finitions: product.sides_finitions ?? null,
         delai_options: product.delai_options?.length ? product.delai_options : emptyForm().delai_options,
+        odoo_account_code:      (product as any).odoo_account_code ?? '',
         seo_title:              (product as any).seo_title ?? '',
         seo_description:        (product as any).seo_description ?? '',
         seo_keywords:           (product as any).seo_keywords ?? '',
@@ -445,6 +449,7 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
         finitions: form.finition_groups,   // stored as `finitions` in DB
         sides_finitions: form.sides_finitions,
         delai_options: form.delai_options,
+        odoo_account_code:     form.odoo_account_code.trim() || null,
         seo_title:             form.seo_title.trim() || null,
         seo_description:       form.seo_description.trim() || null,
         seo_keywords:          form.seo_keywords.trim() || null,
@@ -632,6 +637,17 @@ export default function ProductModal({ product, onClose, onSaved, categories: ca
                     </button>
                   ))}
                 </div>
+              </Field>
+
+              <Field label="Code comptable Odoo" hint="Code du compte de produits dans Odoo (ex : 700000). Appliqué sur chaque ligne de facture générée automatiquement.">
+                <input
+                  type="text"
+                  value={form.odoo_account_code}
+                  onChange={e => set('odoo_account_code', e.target.value)}
+                  placeholder="700000"
+                  maxLength={20}
+                  className="w-40 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-mono"
+                />
               </Field>
 
               <Field label="Fonds perdus requis (mm)" hint="Marge supplémentaire autour du visuel pour l'impression. Utilisé pour la vérification automatique des fichiers clients.">

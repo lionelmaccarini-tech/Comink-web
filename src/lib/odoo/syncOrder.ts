@@ -33,6 +33,8 @@ export interface OdooOrderItem {
   finitions_summary?: Array<{ label: string; value: string }> | null
   /** Production delay in working days — used to compute invoice_date_due */
   delai_days?: number | null
+  /** Odoo account code (ex: "700000") — maps to account.account in Odoo */
+  odoo_account_code?: string | null
 }
 
 export interface SyncOrderParams {
@@ -115,30 +117,31 @@ export async function syncOrderToOdoo(params: SyncOrderParams): Promise<void> {
   try {
     const lines: OdooInvoiceLine[] = []
 
-    // ── Section header: Comink order number ──────────────────────────────────
+    // ── Ligne simple : référence commande ─────────────────────────────────────
+    // display_type 'line_section' → apparaît comme titre de section sans montant
     lines.push({
       display_type: 'line_section',
       name: `Commande ${orderNumber}`,
     })
 
-    // ── One line per item + optional note ────────────────────────────────────
+    // ── Une ligne par article ─────────────────────────────────────────────────
     for (const item of items) {
-      // Product line
-      lines.push({
-        name:             item.product_name,
-        quantity:         item.quantity,
-        price_unit:       Math.round(item.unit_price_ht * 100) / 100,
-        tax_rate_percent: item.vat_rate,
-      })
+      // Détail dimensions + finitions → intégré dans la description (2e ligne visuelle)
+      const detail = buildItemNote(item)
+      const lineName = detail
+        ? `${item.product_name}\n${detail}`
+        : item.product_name
 
-      // Annotation: dimensions + finitions
-      const note = buildItemNote(item)
-      if (note) {
-        lines.push({ display_type: 'line_note', name: note })
-      }
+      lines.push({
+        name:               lineName,
+        quantity:           item.quantity,
+        price_unit:         Math.round(item.unit_price_ht * 100) / 100,
+        tax_rate_percent:   item.vat_rate,
+        odoo_account_code:  item.odoo_account_code ?? undefined,
+      })
     }
 
-    // ── Delivery line ─────────────────────────────────────────────────────────
+    // ── Livraison ─────────────────────────────────────────────────────────────
     if (deliveryCost && deliveryCost > 0) {
       lines.push({
         name:             deliveryLabel,

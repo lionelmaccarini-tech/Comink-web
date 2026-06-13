@@ -168,6 +168,16 @@ export default function ListView({ lines, statuses, staff, onUpdate, onSelect, u
                     <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
                       #{line.order_number}
                     </span>
+                    {line.order_reference && (
+                      <p className="text-[10px] font-bold text-blue-600 mt-0.5 truncate max-w-[120px]" title={line.order_reference}>
+                        🏷 {line.order_reference}
+                      </p>
+                    )}
+                    {line.line_reference && line.line_reference !== line.order_reference && (
+                      <p className="text-[10px] font-bold text-purple-600 mt-0.5 truncate max-w-[120px]" title={line.line_reference}>
+                        🏷 {line.line_reference}
+                      </p>
+                    )}
                   </td>
 
                   {/* Client */}
