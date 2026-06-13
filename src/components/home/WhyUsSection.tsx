@@ -4,22 +4,22 @@ import React from 'react'
 import { Clock, MapPin, Lightbulb, HeadphonesIcon, ShieldCheck, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-const C = { cyan: '#00AEEF', magenta: '#E4007C', yellow: '#F5C400', navy: '#060e1f' }
+const C = { cyan: '#00AEEF', magenta: '#E8001A', yellow: '#F5C400', navy: '#060e1f' }
 
 const features = [
   { icon: Clock,           title: 'Délais respectés',    desc: 'Même les délais serrés. Nos engagements sont gravés dans le marbre.',              color: C.cyan    },
   { icon: MapPin,          title: 'Production locale',   desc: 'Tout est produit à Liège. Contrôle qualité direct, zéro intermédiaire.',            color: C.magenta },
   { icon: Lightbulb,       title: 'Conseils sur-mesure', desc: 'On vous guide vers le bon produit pour votre budget et votre usage.',               color: C.yellow  },
-  { icon: HeadphonesIcon,  title: 'Support humain',      desc: "Angelo, notre IA, répond 24h/24. L'équipe humaine prend le relais.",                color: C.cyan    },
+  { icon: HeadphonesIcon,  title: 'Support humain',      desc: "Une vraie personne vous répond — pas un bot. Devis, conseils, suivi : on est là du lundi au vendredi.",                color: C.cyan    },
   { icon: ShieldCheck,     title: 'Qualité garantie',    desc: "Pas satisfait ? On refait ou on rembourse. Sans discussion.",                       color: C.magenta },
   { icon: Zap,             title: 'Express disponible',  desc: 'Commandez avant 14h, livraison ou enlèvement possible dès le lendemain.',            color: C.yellow  },
 ]
 
 const STATS = [
-  { value: '+2 000', label: 'clients actifs',      color: C.cyan    },
-  { value: '15 ans', label: "d'expérience",        color: C.magenta },
-  { value: '< 2h',   label: 'délai devis moyen',   color: C.yellow  },
-  { value: '99%',    label: 'clients satisfaits',  color: C.cyan    },
+  { value: '+2 000', label: 'clients actifs',    color: C.cyan    },
+  { value: '15 ans', label: "d'expérience",      color: C.magenta },
+  { value: '< 2h',   label: 'délai devis moyen', color: C.yellow  },
+  { value: '100%',   label: 'production locale', color: C.cyan    },
 ]
 
 export default function WhyUsSection() {

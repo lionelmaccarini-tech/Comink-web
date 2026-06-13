@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { MapPin, Phone, Mail, Clock } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
+const C = { cyan: '#00AEEF', magenta: '#E8001A', yellow: '#F5C400', navy: '#060e1f' }
+
 const productLinks = [
   { label: 'Banderoles', href: '/catalogue?category=banderoles' },
   { label: 'Bâches', href: '/catalogue?category=baches' },
@@ -26,8 +28,16 @@ export default function Footer() {
   const pathname = usePathname()
   const BACKOFFICE = ['/admin', '/production', '/crm']
   if (BACKOFFICE.some(p => pathname.startsWith(p))) return null
+
   return (
-    <footer className="bg-slate-900 text-white">
+    <footer style={{ background: C.navy }}>
+      {/* Ligne CMYK */}
+      <div className="h-[3px] flex">
+        <div className="flex-1" style={{ background: C.cyan }} />
+        <div className="flex-1" style={{ background: C.magenta }} />
+        <div className="flex-1" style={{ background: C.yellow }} />
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
 
@@ -39,18 +49,14 @@ export default function Footer() {
               className="h-12 w-auto mb-4"
             />
             <p className="text-slate-400 text-sm leading-relaxed mb-4">
-              Votre imprimeur grand format en Belgique depuis plus de 10 ans.
+              Votre imprimeur grand format en Belgique depuis plus de 15 ans.
               Qualité pro, délais respectés, production locale à Liège.
             </p>
-            <div className="flex items-center gap-1 mt-3">
-              {[1,2,3,4,5].map((i) => <span key={i} className="text-yellow-400">★</span>)}
-              <span className="text-slate-300 text-xs ml-2">4.9/5 · 120+ avis</span>
-            </div>
           </div>
 
           {/* Produits */}
           <div>
-            <h4 className="font-bold text-sm mb-4 text-white">Nos produits</h4>
+            <h4 className="font-black text-sm mb-4 text-white uppercase tracking-wider">Nos produits</h4>
             <ul className="space-y-2">
               {productLinks.map((l) => (
                 <li key={l.href}>
@@ -60,7 +66,8 @@ export default function Footer() {
                 </li>
               ))}
               <li>
-                <Link href="/catalogue" className="text-blue-400 text-sm font-semibold hover:text-blue-300">
+                <Link href="/catalogue" className="text-sm font-black hover:opacity-80 transition-opacity"
+                  style={{ color: C.yellow }}>
                   Tous les produits →
                 </Link>
               </li>
@@ -69,7 +76,7 @@ export default function Footer() {
 
           {/* Services */}
           <div>
-            <h4 className="font-bold text-sm mb-4 text-white">Services</h4>
+            <h4 className="font-black text-sm mb-4 text-white uppercase tracking-wider">Services</h4>
             <ul className="space-y-2">
               {serviceLinks.map((l) => (
                 <li key={l.href}>
@@ -83,30 +90,40 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <h4 className="font-bold text-sm mb-4 text-white">Contact</h4>
+            <h4 className="font-black text-sm mb-4 text-white uppercase tracking-wider">Contact</h4>
             <ul className="space-y-3 text-sm text-slate-400">
               <li className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: C.cyan }} />
                 <span>Rue de Bruxelles 174h<br />4340 Awans, Belgique</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <Phone className="w-4 h-4 flex-shrink-0" style={{ color: C.cyan }} />
                 <a href="tel:+3242330138" className="hover:text-white transition-colors" suppressHydrationWarning>+32 4 233 01 38</a>
               </li>
               <li className="flex items-center gap-2.5">
-                <Mail className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <Mail className="w-4 h-4 flex-shrink-0" style={{ color: C.cyan }} />
                 <a href="mailto:info@comink.be" className="hover:text-white transition-colors">info@comink.be</a>
               </li>
               <li className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: C.cyan }} />
                 <span>Lun–Ven : 8h–17h</span>
               </li>
             </ul>
+
+            {/* Mini CTA */}
+            <div className="mt-5">
+              <Link href="/devis"
+                className="inline-flex items-center gap-2 text-xs font-black px-4 py-2 rounded-lg text-slate-900 hover:opacity-90 transition-opacity"
+                style={{ background: C.yellow }}>
+                Devis gratuit en 2h →
+              </Link>
+            </div>
           </div>
         </div>
 
-        <div className="border-t border-slate-800 mt-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-xs">
-          <p>© {new Date().getFullYear()} Comink — Tous droits réservés</p>
+        <div className="mt-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-600 text-xs"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="text-slate-500">© {new Date().getFullYear()} Comink — Tous droits réservés</p>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5">
             <Link href="/conditions-d-utilisation" className="hover:text-slate-300 transition-colors">Conditions d'utilisation</Link>
             <Link href="/conditions-generales-de-ventes" className="hover:text-slate-300 transition-colors">CGV</Link>
