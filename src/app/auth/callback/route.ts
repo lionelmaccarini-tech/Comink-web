@@ -9,6 +9,7 @@ import { cookies } from 'next/headers'
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
   const code = searchParams.get('code')
+  const type = searchParams.get('type') // 'recovery' pour reset mdp
   const next = searchParams.get('next') ?? '/compte?tab=equipe'
 
   if (code) {
@@ -30,6 +31,10 @@ export async function GET(req: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // Lien de réinitialisation de mot de passe → page dédiée
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/auth/reset-password`)
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
     console.error('[auth/callback] exchangeCodeForSession error:', error)
