@@ -537,8 +537,8 @@ export default function AngeloChat() {
               title="Transmettre à un conseiller humain"
               className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-2.5 py-1.5 rounded-full transition-colors flex-shrink-0"
             >
-              <UserRound className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Humain</span>
+              <UserRound className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Parler à un humain</span>
             </button>
           )}
           <button

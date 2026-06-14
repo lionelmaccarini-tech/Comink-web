@@ -10,7 +10,7 @@ const features = [
   { icon: Clock,           title: 'Délais respectés',    desc: 'Même les délais serrés. Nos engagements sont gravés dans le marbre.',              color: C.cyan    },
   { icon: MapPin,          title: 'Production locale',   desc: 'Tout est produit à Liège. Contrôle qualité direct, zéro intermédiaire.',            color: C.magenta },
   { icon: Lightbulb,       title: 'Conseils sur-mesure', desc: 'On vous guide vers le bon produit pour votre budget et votre usage.',               color: C.yellow  },
-  { icon: HeadphonesIcon,  title: 'Support humain',      desc: "Une vraie personne vous répond — pas un bot. Devis, conseils, suivi : on est là du lundi au vendredi.",                color: C.cyan    },
+  { icon: HeadphonesIcon,  title: 'Support humain',      desc: "Notre IA répond instantanément 24h/24. Pendant les heures d'ouverture, un humain prend le relais en un clic — avec tout le détail de votre conversation.",                color: C.cyan    },
   { icon: ShieldCheck,     title: 'Qualité garantie',    desc: "Pas satisfait ? On refait ou on rembourse. Sans discussion.",                       color: C.magenta },
   { icon: Zap,             title: 'Express disponible',  desc: 'Commandez avant 14h, livraison ou enlèvement possible dès le lendemain.',            color: C.yellow  },
 ]

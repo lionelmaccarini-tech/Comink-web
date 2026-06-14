@@ -64,6 +64,10 @@ interface ProductInfo {
   delai_options?: any[]
   sides_finitions?: any
   available: boolean
+  min_width_cm?: number
+  max_width_cm?: number
+  min_height_cm?: number
+  max_height_cm?: number
 }
 
 interface FileAnalysis {
@@ -145,7 +149,10 @@ function initRowConfig(p: ProductInfo): Pick<ProductRow, 'selectedFinitions' | '
     }
   })
 
-  const selectedDelai = delais.length > 0 ? [...delais].sort((a, b) => a.days - b.days)[0] : null
+  // Par défaut : le délai standard le plus long (sans surcharge express)
+  const standardDelais = delais.filter(d => !d.surcharge_percent || d.surcharge_percent === 0)
+  const poolDelais = standardDelais.length > 0 ? standardDelais : delais
+  const selectedDelai = poolDelais.length > 0 ? [...poolDelais].sort((a, b) => b.days - a.days)[0] : null
 
   const selectedSides: Record<string, string[]> = {}
   if (sidesFinitions?.enabled && sidesFinitions.sides?.length > 0) {
@@ -255,8 +262,10 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
               }
               if (!selectedDelai) {
                 const delais: any[] = (product?.delai_options as any[]) ?? []
-                selectedDelai = delais.length > 0
-                  ? ([...delais].sort((a: any, b: any) => a.days - b.days)[0])
+                const stdDelais = delais.filter((d: any) => !d.surcharge_percent || d.surcharge_percent === 0)
+                const pool = stdDelais.length > 0 ? stdDelais : delais
+                selectedDelai = pool.length > 0
+                  ? ([...pool].sort((a: any, b: any) => b.days - a.days)[0])
                   : null
               }
               if (!selectedSides) {
@@ -528,7 +537,12 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
       if (!row.product_id) { newErrors[row.id] = 'Choisissez un produit'; valid = false; continue }
       const p = getProduct(row.product_id)!
       if (p.product_type === 'sur_mesure') {
-        if (!row.width_cm || !row.height_cm) { newErrors[row.id] = 'Dimensions requises'; valid = false }
+        if (!row.width_cm || !row.height_cm) { newErrors[row.id] = 'Dimensions requises'; valid = false; continue }
+        const w = Number(row.width_cm), h = Number(row.height_cm)
+        if (p.min_width_cm  && w < p.min_width_cm)  { newErrors[row.id] = `Largeur min : ${p.min_width_cm} cm`; valid = false; continue }
+        if (p.max_width_cm  && w > p.max_width_cm)  { newErrors[row.id] = `Largeur max : ${p.max_width_cm} cm`; valid = false; continue }
+        if (p.min_height_cm && h < p.min_height_cm) { newErrors[row.id] = `Hauteur min : ${p.min_height_cm} cm`; valid = false; continue }
+        if (p.max_height_cm && h > p.max_height_cm) { newErrors[row.id] = `Hauteur max : ${p.max_height_cm} cm`; valid = false; continue }
       }
     }
 
@@ -583,7 +597,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
     if (finitionGroups.length === 0 && delais.length === 0 && !hasSides) return null
 
     return (
-      <div className="px-4 pb-4 pt-3 bg-blue-50/60 border-t border-blue-100 space-y-4">
+      <div className="px-4 pb-4 pt-3 space-y-4" style={{ background: 'rgba(0,174,239,0.06)', borderTop: '1px solid rgba(0,174,239,0.15)' }}>
 
         {/* Finition groups */}
         {finitionGroups.length > 0 && (
@@ -594,17 +608,18 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                 const sel = row.selectedFinitions[g.id]
                 return (
                   <div key={g.id}>
-                    {g.label && <p className="text-xs font-semibold text-slate-600 mb-1.5">{g.label}</p>}
+                    {g.label && <p className="text-xs font-semibold text-slate-300 mb-1.5">{g.label}</p>}
                     {g.display_type === 'select' ? (
                       <div className="relative max-w-xs">
                         <select
                           value={(sel as string) ?? ''}
                           onChange={e => updateRow(row.id, { selectedFinitions: { ...row.selectedFinitions, [g.id]: e.target.value } })}
-                          className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm appearance-none pr-7 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          className="w-full rounded-lg px-2.5 py-2 text-sm appearance-none pr-7 focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
                         >
-                          {!g.required && <option value="">— Aucune —</option>}
+                          {!g.required && <option value="" style={{ background: '#0d1f38', color: 'white' }}>— Aucune —</option>}
                           {g.options.map(o => (
-                            <option key={o.id} value={o.id}>
+                            <option key={o.id} value={o.id} style={{ background: '#0d1f38', color: 'white' }}>
                               {o.label}
                               {o.price_supplement > 0 ? ` (${fmtSuppl(o.price_type, o.price_supplement)})` : ''}
                             </option>
@@ -620,9 +635,11 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                             <label key={o.id}
                               className={cn(
                                 'flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all text-sm',
-                                isSel ? 'border-blue-500 bg-blue-100 text-blue-700 font-semibold' : 'border-slate-200 bg-white hover:border-blue-300'
-                              )}>
-                              <input type="checkbox" checked={isSel} className="w-3.5 h-3.5 accent-blue-600"
+                                isSel ? 'border-[#00AEEF] text-[#00AEEF] font-semibold' : 'text-slate-300 hover:border-[#00AEEF]/50'
+                              )}
+                              style={isSel ? { background: 'rgba(0,174,239,0.15)', borderColor: '#00AEEF' } : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)' }}
+                            >
+                              <input type="checkbox" checked={isSel} className="w-3.5 h-3.5 accent-[#00AEEF]"
                                 onChange={() => {
                                   const cur = Array.isArray(sel) ? sel : []
                                   const next = isSel ? cur.filter(x => x !== o.id) : [...cur, o.id]
@@ -630,7 +647,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                                 }} />
                               <span>{o.label}</span>
                               {o.price_supplement > 0 && (
-                                <span className="text-xs font-bold text-blue-500">
+                                <span className="text-xs font-bold text-[#00AEEF]">
                                   {fmtSuppl(o.price_type, o.price_supplement)}
                                 </span>
                               )}
@@ -656,7 +673,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                 const incompatibilities: Array<[string, string]> = sidesFinitions.incompatibilities ?? []
                 return (
                   <div key={side.id}>
-                    <p className="text-xs font-semibold text-slate-600 mb-1.5">{side.label}</p>
+                    <p className="text-xs font-semibold text-slate-300 mb-1.5">{side.label}</p>
                     <div className="flex flex-wrap gap-2">
                       {sidesFinitions.options.map((opt: any) => {
                         const isSel = currentSel.includes(opt.id)
@@ -678,14 +695,18 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                             }}
                             className={cn(
                               'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all',
-                              isSel ? 'border-blue-500 bg-blue-100 text-blue-700' :
-                              blocked ? 'border-slate-100 text-slate-300 cursor-not-allowed opacity-40' :
-                              'border-slate-200 bg-white hover:border-blue-300 text-slate-600'
+                              blocked ? 'cursor-not-allowed opacity-40' : ''
                             )}
+                            style={isSel
+                              ? { borderColor: '#00AEEF', background: 'rgba(0,174,239,0.15)', color: '#00AEEF' }
+                              : blocked
+                                ? { borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)', background: 'transparent' }
+                                : { borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#cbd5e1' }
+                            }
                           >
                             <span className={cn(
                               'w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
-                              isSel ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                              isSel ? 'border-[#00AEEF] bg-[#00AEEF]' : 'border-slate-600'
                             )}>
                               {isSel && (
                                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -695,7 +716,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                             </span>
                             {opt.label}
                             {opt.price_supplement > 0 && (
-                              <span className="font-bold text-blue-500">
+                              <span className="font-bold text-[#00AEEF]">
                                 {fmtSuppl(opt.price_type, opt.price_supplement)}
                               </span>
                             )}
@@ -726,22 +747,30 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                   <button key={d.id}
                     onClick={() => updateRow(row.id, { selectedDelai: d })}
                     title={d.label}
-                    className={cn(
-                      'flex flex-col items-center px-3 py-2 rounded-xl border-2 transition-all text-center min-w-[64px]',
-                      isSel ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-200 hover:border-blue-400'
-                    )}
+                    className="flex flex-col items-center px-3 py-2 rounded-xl border-2 transition-all text-center min-w-[64px]"
+                    style={isSel
+                      ? { background: '#00AEEF', borderColor: '#00AEEF', color: 'white' }
+                      : { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.12)', color: 'white' }
+                    }
                   >
-                    <span className={cn('text-sm font-extrabold leading-tight', isSel ? 'text-white' : 'text-slate-800')}>
+                    <span className={cn('text-sm font-extrabold leading-tight', isSel ? 'text-white' : 'text-white')}>
                       {day} {mon}
                     </span>
                     <span className={cn('text-[10px] font-medium mt-0.5', isSel ? 'text-blue-100' : 'text-slate-400')}>{wday}</span>
                     <span className={cn(
                       'text-[10px] font-bold mt-1 px-1.5 py-0.5 rounded-full',
                       isSel ? 'bg-white/20 text-white' :
-                      pct === 0 ? 'bg-green-50 text-green-600 border border-green-200' :
-                      pct <= 20 ? 'bg-amber-50 text-amber-600 border border-amber-200' :
-                      'bg-red-50 text-red-500 border border-red-200'
-                    )}>
+                      pct === 0 ? 'text-emerald-400' :
+                      pct <= 20 ? 'text-[#F5C400]' :
+                      'text-red-400'
+                    )}
+                    style={!isSel ? (pct === 0
+                      ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)' }
+                      : pct <= 20
+                        ? { background: 'rgba(245,196,0,0.12)', border: '1px solid rgba(245,196,0,0.25)' }
+                        : { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }
+                    ) : undefined}
+                    >
                       {pct === 0 ? 'Std' : `+${pct}%`}
                     </span>
                   </button>
@@ -749,10 +778,10 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
               })}
             </div>
             {row.selectedDelai && (
-              <p className="text-xs text-slate-500 mt-2">
-                <strong className="text-slate-700">{row.selectedDelai.label}</strong>
+              <p className="text-xs text-slate-400 mt-2">
+                <strong className="text-slate-300">{row.selectedDelai.label}</strong>
                 {' — livraison le '}
-                <strong className="text-blue-600">
+                <strong className="text-[#00AEEF]">
                   {addWorkingDays(row.selectedDelai.days).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </strong>
               </p>
@@ -769,14 +798,22 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
   const grandTotal = totalRows()
 
   return (
-    <div className="min-h-screen bg-sky-50">
+    <div className="min-h-screen" style={{ background: '#09111f' }}>
+      {/* Barre CMYK 3px */}
+      <div className="h-[3px] w-full flex">
+        <div className="flex-1" style={{ background: '#00AEEF' }} />
+        <div className="flex-1" style={{ background: '#E8001A' }} />
+        <div className="flex-1" style={{ background: '#F5C400' }} />
+        <div className="flex-1" style={{ background: '#09111f', borderTop: '3px solid rgba(255,255,255,0.15)' }} />
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">⚡ Commande rapide</h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-2xl font-black text-white">⚡ Commande rapide</h1>
+            <p className="text-sm mt-1" style={{ color: '#00AEEF' }}>
               Ajoutez vos lignes directement ou importez des PDFs — une ligne par page.
             </p>
           </div>
@@ -786,7 +823,10 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
             <button
               onClick={() => fileRef.current?.click()}
               disabled={importing}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-blue-300 text-blue-600 font-semibold text-sm hover:border-blue-500 hover:bg-blue-50 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed font-semibold text-sm transition-all disabled:opacity-50"
+              style={{ borderColor: 'rgba(0,174,239,0.4)', color: '#00AEEF' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#00AEEF'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,174,239,0.08)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(0,174,239,0.4)'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
             >
               {importing ? (
                 <>
@@ -799,7 +839,10 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
             </button>
             <button
               onClick={addRow}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-semibold text-sm transition-colors"
+              style={{ background: '#0d1f38', border: '1px solid rgba(255,255,255,0.12)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.1)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#0d1f38' }}
             >
               <Plus className="w-4 h-4" /> Ajouter une ligne
             </button>
@@ -808,14 +851,14 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
         {/* Import feedback */}
         {importError && (
-          <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          <div className="mb-4 flex items-center gap-2 text-red-400 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {importError}
             <button onClick={() => setImportError(null)} className="ml-auto"><X className="w-4 h-4" /></button>
           </div>
         )}
         {importInfo && (
-          <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+          <div className="mb-4 flex items-center gap-2 text-emerald-400 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
             <FileText className="w-4 h-4 flex-shrink-0" />
             {importInfo}
             <button onClick={() => setImportInfo(null)} className="ml-auto"><X className="w-4 h-4" /></button>
@@ -823,10 +866,10 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+        <div className="rounded-2xl shadow-sm overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
           {/* Column headers */}
-          <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 grid gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider"
-            style={{ gridTemplateColumns: '2fr 90px 90px 80px 100px 100px 80px' }}>
+          <div className="px-4 py-3 grid gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider"
+            style={{ gridTemplateColumns: '2fr 90px 90px 80px 100px 100px 80px', background: '#0d1f38', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
             <div>Produit</div>
             <div className="text-center">Largeur (cm)</div>
             <div className="text-center">Hauteur (cm)</div>
@@ -837,13 +880,24 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
           </div>
 
           {/* Rows */}
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-white/10">
             {rows.map((row, idx) => {
               const p = getProduct(row.product_id)
               const isSurMesure = p?.product_type === 'sur_mesure'
               const unitPrice = calcUnitPrice(row)
               const rowTotal = unitPrice * row.quantity
               const rowError = errors[row.id]
+              // Min/max dimensions du produit
+              const minW = p?.min_width_cm  ?? null
+              const maxW = p?.max_width_cm  ?? null
+              const minH = p?.min_height_cm ?? null
+              const maxH = p?.max_height_cm ?? null
+              const dimWarn = isSurMesure && row.width_cm !== '' && row.height_cm !== '' && (
+                (minW !== null && Number(row.width_cm)  < minW) ||
+                (maxW !== null && Number(row.width_cm)  > maxW) ||
+                (minH !== null && Number(row.height_cm) < minH) ||
+                (maxH !== null && Number(row.height_cm) > maxH)
+              )
 
               // Check if this product has configurable options
               const finitionGroups = p ? normalizeFinitions(p.finitions ?? []) : []
@@ -852,42 +906,43 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
               const hasConfig = finitionGroups.length > 0 || delais.length > 0 || hasSides
 
               return (
-                <div key={row.id} className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
+                <div key={row.id} style={idx % 2 === 1 ? { background: 'rgba(255,255,255,0.02)' } : {}}>
                   {/* Main row */}
                   <div
-                    className={cn('px-4 py-3 grid gap-2 items-center transition-colors', rowError ? 'bg-red-50' : '')}
-                    style={{ gridTemplateColumns: '2fr 90px 90px 80px 100px 100px 80px' }}
+                    className={cn('px-4 py-3 grid gap-2 items-center transition-colors')}
+                    style={{ gridTemplateColumns: '2fr 90px 90px 80px 100px 100px 80px', ...(rowError ? { background: 'rgba(239,68,68,0.08)' } : {}) }}
                   >
                     {/* Product selector */}
                     <div>
                       <div className="relative">
                         <select
                           value={row.product_id}
-                          onChange={e => updateRow(row.id, { product_id: e.target.value, width_cm: '', height_cm: '' })}
-                          className={cn(
-                            'w-full border rounded-lg px-2.5 py-2 text-sm appearance-none pr-7 focus:outline-none focus:ring-2 focus:ring-blue-500',
-                            rowError ? 'border-red-400 bg-red-50' : 'border-slate-200'
-                          )}
+                          onChange={e => updateRow(row.id, { product_id: e.target.value })}
+                          className="w-full rounded-lg px-2.5 py-2 text-sm appearance-none pr-7 focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                          style={rowError
+                            ? { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', color: 'white' }
+                            : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }
+                          }
                         >
-                          <option value="">— Choisir un produit —</option>
+                          <option value="" style={{ background: '#0d1f38', color: 'white' }}>— Choisir un produit —</option>
                           {surMesureProducts.length > 0 && (
                             <optgroup label="Sur mesure">
                               {surMesureProducts.map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
+                                <option key={p.id} value={p.id} style={{ background: '#0d1f38', color: 'white' }}>{p.name}</option>
                               ))}
                             </optgroup>
                           )}
                           {standardProducts.length > 0 && (
                             <optgroup label="Taille standard">
                               {standardProducts.map(p => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
+                                <option key={p.id} value={p.id} style={{ background: '#0d1f38', color: 'white' }}>{p.name}</option>
                               ))}
                             </optgroup>
                           )}
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                       </div>
-                      {rowError && <p className="text-[11px] text-red-500 mt-0.5 font-medium">{rowError}</p>}
+                      {rowError && <p className="text-[11px] text-red-400 mt-0.5 font-medium">{rowError}</p>}
 
                       {/* Standard size selector */}
                       {p?.product_type === 'taille_standard' && (p.standard_sizes?.length ?? 0) > 0 && (
@@ -898,11 +953,12 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                               const [w, h] = e.target.value.split('x').map(Number)
                               updateRow(row.id, { width_cm: w, height_cm: h })
                             }}
-                            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs appearance-none pr-6 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-600"
+                            className="w-full rounded-lg px-2.5 py-1.5 text-xs appearance-none pr-6 focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#cbd5e1' }}
                           >
-                            <option value="x">— Choisir une taille —</option>
+                            <option value="x" style={{ background: '#0d1f38', color: 'white' }}>— Choisir une taille —</option>
                             {(p.standard_sizes ?? []).map(s => (
-                              <option key={s.label} value={`${s.width_cm}x${s.height_cm}`}>
+                              <option key={s.label} value={`${s.width_cm}x${s.height_cm}`} style={{ background: '#0d1f38', color: 'white' }}>
                                 {s.label} — {s.width_cm}×{s.height_cm} cm — {formatPrice(s.price)}
                               </option>
                             ))}
@@ -918,9 +974,12 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                           className={cn(
                             'mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-2 py-1 transition-all',
                             row.expanded
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                              ? 'text-[#00AEEF]'
+                              : 'text-slate-400 hover:text-[#00AEEF]'
                           )}
+                          style={row.expanded ? { background: 'rgba(0,174,239,0.12)' } : {}}
+                          onMouseEnter={e => { if (!row.expanded) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,174,239,0.07)' }}
+                          onMouseLeave={e => { if (!row.expanded) (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                         >
                           <SlidersHorizontal className="w-3 h-3" />
                           Finitions &amp; délai
@@ -932,58 +991,80 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                     {/* Width */}
                     <div>
                       <input
-                        type="number" step="0.1" min="1"
+                        type="number" step="0.1"
+                        min={minW ?? 1}
+                        max={maxW ?? undefined}
                         disabled={!p || !isSurMesure}
                         value={row.width_cm}
                         onChange={e => updateRow(row.id, { width_cm: e.target.value === '' ? '' : Number(e.target.value) })}
-                        placeholder={isSurMesure ? '100' : '—'}
-                        className={cn(
-                          'w-full border rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500',
-                          !p || !isSurMesure ? 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed' : 'border-slate-200'
-                        )}
+                        placeholder={isSurMesure ? (minW ? String(minW) : '100') : '—'}
+                        className="w-full rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                        style={!p || !isSurMesure
+                          ? { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#475569', cursor: 'not-allowed' }
+                          : dimWarn && (minW !== null && Number(row.width_cm) < minW || maxW !== null && Number(row.width_cm) > maxW)
+                            ? { background: 'rgba(245,196,0,0.08)', border: '1px solid rgba(245,196,0,0.5)', color: 'white' }
+                            : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }
+                        }
                       />
+                      {isSurMesure && (minW || maxW) && (
+                        <p className="text-[10px] text-center mt-0.5"
+                          style={{ color: dimWarn && (minW !== null && Number(row.width_cm) < minW || maxW !== null && Number(row.width_cm) > maxW) ? '#F5C400' : '#64748b' }}>
+                          {minW && maxW ? `${minW}–${maxW} cm` : minW ? `min ${minW} cm` : `max ${maxW} cm`}
+                        </p>
+                      )}
                     </div>
 
                     {/* Height */}
                     <div>
                       <input
-                        type="number" step="0.1" min="1"
+                        type="number" step="0.1"
+                        min={minH ?? 1}
+                        max={maxH ?? undefined}
                         disabled={!p || !isSurMesure}
                         value={row.height_cm}
                         onChange={e => updateRow(row.id, { height_cm: e.target.value === '' ? '' : Number(e.target.value) })}
-                        placeholder={isSurMesure ? '50' : '—'}
-                        className={cn(
-                          'w-full border rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500',
-                          !p || !isSurMesure ? 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed' : 'border-slate-200'
-                        )}
+                        placeholder={isSurMesure ? (minH ? String(minH) : '50') : '—'}
+                        className="w-full rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                        style={!p || !isSurMesure
+                          ? { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#475569', cursor: 'not-allowed' }
+                          : dimWarn && (minH !== null && Number(row.height_cm) < minH || maxH !== null && Number(row.height_cm) > maxH)
+                            ? { background: 'rgba(245,196,0,0.08)', border: '1px solid rgba(245,196,0,0.5)', color: 'white' }
+                            : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }
+                        }
                       />
+                      {isSurMesure && (minH || maxH) && (
+                        <p className="text-[10px] text-center mt-0.5"
+                          style={{ color: dimWarn && (minH !== null && Number(row.height_cm) < minH || maxH !== null && Number(row.height_cm) > maxH) ? '#F5C400' : '#64748b' }}>
+                          {minH && maxH ? `${minH}–${maxH} cm` : minH ? `min ${minH} cm` : `max ${maxH} cm`}
+                        </p>
+                      )}
                     </div>
 
                     {/* Quantity */}
-                    <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.12)' }}>
                       <button
                         onClick={() => updateRow(row.id, { quantity: Math.max(1, row.quantity - 1) })}
-                        className="px-2 py-2 text-slate-500 hover:bg-slate-100 font-bold text-sm flex-shrink-0"
+                        className="px-2 py-2 text-slate-400 hover:bg-white/10 font-bold text-sm flex-shrink-0"
                       >−</button>
-                      <span className="flex-1 text-center text-sm font-bold border-x border-slate-200 py-2">{row.quantity}</span>
+                      <span className="flex-1 text-center text-sm font-bold py-2 text-white" style={{ borderLeft: '1px solid rgba(255,255,255,0.12)', borderRight: '1px solid rgba(255,255,255,0.12)' }}>{row.quantity}</span>
                       <button
                         onClick={() => updateRow(row.id, { quantity: row.quantity + 1 })}
-                        className="px-2 py-2 text-slate-500 hover:bg-slate-100 font-bold text-sm flex-shrink-0"
+                        className="px-2 py-2 text-slate-400 hover:bg-white/10 font-bold text-sm flex-shrink-0"
                       >+</button>
                     </div>
 
                     {/* Unit price */}
                     <div className="text-right">
                       {unitPrice > 0
-                        ? <span className="text-sm font-semibold text-slate-700">{formatPrice(unitPrice)}</span>
-                        : <span className="text-sm text-slate-300">—</span>}
+                        ? <span className="text-sm font-semibold text-slate-300">{formatPrice(unitPrice)}</span>
+                        : <span className="text-sm text-slate-600">—</span>}
                     </div>
 
                     {/* Row total */}
                     <div className="text-right">
                       {rowTotal > 0
-                        ? <span className="text-sm font-bold text-blue-600">{formatPrice(rowTotal)}</span>
-                        : <span className="text-sm text-slate-300">—</span>}
+                        ? <span className="text-sm font-bold text-[#00AEEF]">{formatPrice(rowTotal)}</span>
+                        : <span className="text-sm text-slate-600">—</span>}
                     </div>
 
                     {/* Actions */}
@@ -991,7 +1072,9 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                       <button
                         onClick={() => duplicateRow(row)}
                         title="Dupliquer la ligne"
-                        className="p-1.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-600 hover:text-[#00AEEF] rounded-lg transition-colors"
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,174,239,0.1)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
@@ -1000,7 +1083,9 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                       <button
                         onClick={() => removeRow(row.id)}
                         title="Supprimer"
-                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg transition-colors"
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.1)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1012,25 +1097,25 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
                   {/* Zone fichier — upload + analyse */}
                   {(row.fileState !== 'none' || row.fileObj || row.fileName) && (
-                    <div className="border-t border-slate-100 px-4 pt-3 pb-3 mt-0">
+                    <div className="px-4 pt-3 pb-3 mt-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
 
                       {/* État upload */}
                       {row.fileState === 'uploading' && (
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                          <div className="flex items-center gap-2 text-xs text-[#00AEEF]">
                             <LottiePlayer src="/animations/scan.json" className="w-5 h-5" loop autoplay />
                             <span>Upload… {row.uploadProgress}%</span>
                           </div>
-                          <div className="w-full bg-slate-100 rounded-full h-1.5">
-                            <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-200"
-                              style={{ width: `${row.uploadProgress}%` }} />
+                          <div className="w-full rounded-full h-1.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                            <div className="h-1.5 rounded-full transition-all duration-200"
+                              style={{ width: `${row.uploadProgress}%`, background: '#00AEEF' }} />
                           </div>
                         </div>
                       )}
 
                       {/* État analyse */}
                       {row.fileState === 'analyzing' && (
-                        <div className="flex items-center gap-2 text-xs text-violet-600">
+                        <div className="flex items-center gap-2 text-xs text-violet-400">
                           <LottiePlayer src="/animations/scan.json" className="w-5 h-5" loop autoplay />
                           <span className="animate-pulse">Analyse IA en cours…</span>
                         </div>
@@ -1044,35 +1129,38 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                             const cmykCheck = row.analysis.checks.find(c => c.id === 'color_mode')
                             if (!cmykCheck) return null
                             if (cmykCheck.status === 'error') return (
-                              <div className="flex items-start gap-2 bg-red-50 border border-red-300 rounded-lg p-2.5">
-                                <span className="text-red-500 text-base flex-shrink-0">🚫</span>
+                              <div className="flex items-start gap-2 rounded-lg p-2.5" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                <span className="text-red-400 text-base flex-shrink-0">🚫</span>
                                 <div>
-                                  <p className="text-xs font-black text-red-700">FICHIER RGB — NON CONFORME</p>
-                                  <p className="text-[11px] text-red-600 mt-0.5">{cmykCheck.message}</p>
+                                  <p className="text-xs font-black text-red-400">FICHIER RGB — NON CONFORME</p>
+                                  <p className="text-[11px] text-red-400 mt-0.5">{cmykCheck.message}</p>
                                 </div>
                               </div>
                             )
                             if (cmykCheck.status === 'ok') return (
-                              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">
-                                <span className="text-emerald-500">✓</span>
-                                <p className="text-xs font-bold text-emerald-700">CMJN ✓ Mode couleur conforme</p>
+                              <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                <span className="text-emerald-400">✓</span>
+                                <p className="text-xs font-bold text-emerald-400">CMJN ✓ Mode couleur conforme</p>
                               </div>
                             )
                             return (
-                              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                                <span className="text-amber-500">⚠</span>
-                                <p className="text-xs font-semibold text-amber-700">{cmykCheck.message}</p>
+                              <div className="flex items-center gap-2 rounded-lg px-2.5 py-1.5" style={{ background: 'rgba(245,196,0,0.1)', border: '1px solid rgba(245,196,0,0.2)' }}>
+                                <span className="text-[#F5C400]">⚠</span>
+                                <p className="text-xs font-semibold text-[#F5C400]">{cmykCheck.message}</p>
                               </div>
                             )
                           })()}
 
                           {/* Score global */}
                           <div className={cn(
-                            'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold',
-                            row.analysis.status === 'ok' ? 'bg-emerald-50 text-emerald-700' :
-                            row.analysis.status === 'warning' ? 'bg-amber-50 text-amber-700' :
-                            'bg-red-50 text-red-700'
-                          )}>
+                            'flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold'
+                          )}
+                          style={row.analysis.status === 'ok'
+                            ? { background: 'rgba(16,185,129,0.1)', color: '#34d399' }
+                            : row.analysis.status === 'warning'
+                              ? { background: 'rgba(245,196,0,0.1)', color: '#F5C400' }
+                              : { background: 'rgba(239,68,68,0.1)', color: '#f87171' }
+                          }>
                             <span>{row.analysis.summary}</span>
                             <span className="text-base font-black">{row.analysis.score}/100</span>
                           </div>
@@ -1082,8 +1170,8 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                             {row.analysis.checks.filter(c => c.id !== 'color_mode').map(check => (
                               <div key={check.id} className={cn(
                                 'flex items-start gap-1.5 text-[11px] px-2 py-1 rounded',
-                                check.status === 'ok' ? 'text-emerald-600' :
-                                check.status === 'warning' ? 'text-amber-600' : 'text-red-600'
+                                check.status === 'ok' ? 'text-emerald-400' :
+                                check.status === 'warning' ? 'text-[#F5C400]' : 'text-red-400'
                               )}>
                                 <span className="flex-shrink-0">{check.status === 'ok' ? '✓' : check.status === 'warning' ? '⚠' : '✗'}</span>
                                 <span><strong>{check.label}</strong> — {check.message}</span>
@@ -1093,15 +1181,16 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
                           {/* Si problèmes : option BAT + force validate */}
                           {row.analysis.status !== 'ok' && (
-                            <div className="border border-amber-200 bg-amber-50 rounded-lg p-2.5 space-y-2">
-                              <p className="text-[11px] font-bold text-amber-800">
+                            <div className="rounded-lg p-2.5 space-y-2" style={{ border: '1px solid rgba(245,196,0,0.2)', background: 'rgba(245,196,0,0.07)' }}>
+                              <p className="text-[11px] font-bold text-[#F5C400]">
                                 {row.forceValidate ? '✓ Fichier accepté avec réserves' : '⚠ Ce fichier comporte des non-conformités'}
                               </p>
                               <textarea
                                 placeholder="Note BAT (ex: couleur RVB assumée, pas à l'échelle, etc.)"
                                 value={row.batNote}
                                 onChange={e => updateRow(row.id, { batNote: e.target.value })}
-                                className="w-full text-[11px] border border-amber-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white resize-none"
+                                className="w-full text-[11px] rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#F5C400]/50 resize-none placeholder:text-slate-500"
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(245,196,0,0.25)', color: 'white' }}
                                 rows={2}
                               />
                               <button
@@ -1110,8 +1199,9 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
                                   'text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors',
                                   row.forceValidate
                                     ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                    : 'bg-amber-500 text-white hover:bg-amber-600'
+                                    : 'text-white'
                                 )}
+                                style={!row.forceValidate ? { background: 'rgba(245,196,0,0.8)' } : {}}
                               >
                                 {row.forceValidate ? '✓ Validé avec réserves' : 'Valider quand même →'}
                               </button>
@@ -1122,7 +1212,7 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
                       {/* Erreur upload */}
                       {row.fileState === 'error' && (
-                        <p className="text-xs text-red-500">Erreur lors de l&apos;upload. Réessayez.</p>
+                        <p className="text-xs text-red-400">Erreur lors de l&apos;upload. Réessayez.</p>
                       )}
 
                       {/* Nom de fichier si uploadé */}
@@ -1137,15 +1227,15 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
           </div>
 
           {/* Footer: add row + total */}
-          <div className="border-t border-slate-200 px-4 py-3 bg-slate-50 flex items-center justify-between">
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', background: '#0d1f38' }}>
             <button onClick={addRow}
-              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-blue-600 font-medium transition-colors">
+              className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-[#00AEEF] font-medium transition-colors">
               <Plus className="w-4 h-4" /> Ajouter une ligne
             </button>
             {grandTotal > 0 && (
               <div className="text-right">
                 <span className="text-xs text-slate-400 mr-2">Total HTVA estimé</span>
-                <span className="text-lg font-extrabold text-blue-600">{formatPrice(grandTotal)}<span className="text-xs font-normal ml-1 text-blue-400">HTVA</span></span>
+                <span className="text-lg font-extrabold text-[#00AEEF]">{formatPrice(grandTotal)}<span className="text-xs font-normal ml-1" style={{ color: 'rgba(0,174,239,0.6)' }}>HTVA</span></span>
               </div>
             )}
           </div>
@@ -1153,20 +1243,23 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
 
         {/* CTA */}
         <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-400">
             {validRows.length > 0
               ? `${validRows.length} ligne${validRows.length > 1 ? 's' : ''} prête${validRows.length > 1 ? 's' : ''} à être ajoutée${validRows.length > 1 ? 's' : ''} au panier`
               : 'Ajoutez des lignes pour composer votre commande'}
           </p>
           <div className="flex items-center gap-3">
             <Link href="/panier"
-              className="text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors">
+              className="text-sm font-semibold text-slate-400 hover:text-[#00AEEF] transition-colors">
               Voir le panier →
             </Link>
             <button
               onClick={validateAndAddToCart}
               disabled={validRows.length === 0}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors shadow-sm"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: '#00AEEF' }}
+              onMouseEnter={e => { if (validRows.length > 0) (e.currentTarget as HTMLButtonElement).style.opacity = '0.9' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = '1' }}
             >
               {addedAll
                 ? <><CheckCircle className="w-4 h-4" /> Ajouté au panier !</>
@@ -1177,16 +1270,16 @@ export default function CommandeRapideClient({ products }: { products: ProductIn
         </div>
 
         {/* PDF import info box */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-5">
+        <div className="mt-8 rounded-2xl p-5" style={{ background: 'rgba(0,174,239,0.07)', border: '1px solid rgba(0,174,239,0.18)' }}>
           <div className="flex items-start gap-3">
-            <FileText className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <FileText className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#00AEEF' }} />
             <div>
-              <p className="text-sm font-bold text-blue-800 mb-1">Import PDF — Comment ça marche ?</p>
-              <ul className="text-xs text-blue-700 space-y-1 leading-relaxed">
-                <li>• Préparez un ou plusieurs PDFs où <strong>chaque page correspond à une pièce à imprimer</strong> avec ses dimensions finales.</li>
+              <p className="text-sm font-bold mb-1" style={{ color: '#00AEEF' }}>Import PDF — Comment ça marche ?</p>
+              <ul className="text-xs text-slate-300 space-y-1 leading-relaxed">
+                <li>• Préparez un ou plusieurs PDFs où <strong className="text-white">chaque page correspond à une pièce à imprimer</strong> avec ses dimensions finales.</li>
                 <li>• Les fichiers sont analysés localement dans votre navigateur — aucun upload sur nos serveurs.</li>
                 <li>• Les dimensions (largeur × hauteur en cm) sont lues automatiquement depuis les métadonnées de chaque page.</li>
-                <li>• Cliquez sur <strong>Finitions &amp; délai</strong> pour personnaliser chaque ligne selon le produit choisi.</li>
+                <li>• Cliquez sur <strong className="text-white">Finitions &amp; délai</strong> pour personnaliser chaque ligne selon le produit choisi.</li>
               </ul>
             </div>
           </div>

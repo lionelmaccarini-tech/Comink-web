@@ -117,6 +117,22 @@ export async function POST(req: NextRequest) {
     if (orderError) throw orderError
 
     // ── Odoo sync (non-blocking) ──────────────────────────────────────────────
+    // Vérifier si ce client est facturé en fin de mois → pas de facture immédiate
+    let skipOdooSync = false
+    if (clientEmail) {
+      const { data: clientRecord } = await supabase
+        .from('clients')
+        .select('billing_end_of_month')
+        .ilike('email', clientEmail)
+        .limit(1)
+        .maybeSingle()
+      if (clientRecord?.billing_end_of_month) {
+        skipOdooSync = true
+        console.log(`[wire order] Odoo sync skipped for ${clientEmail} (billing_end_of_month)`)
+      }
+    }
+
+    if (!skipOdooSync)
     try {
       const intraCommunity = vatNumber && isIntraCommunityVAT(vatNumber)
 

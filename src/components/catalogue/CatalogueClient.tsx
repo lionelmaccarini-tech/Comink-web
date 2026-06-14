@@ -3,24 +3,23 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { Search, X, ArrowRight } from 'lucide-react'
 import type { Product } from '@/types'
-import { CATEGORY_LABELS, formatPrice } from '@/lib/utils'
+import { CATEGORY_LABELS } from '@/lib/utils'
 
+const C = { cyan: '#00AEEF', magenta: '#E8001A', yellow: '#F5C400', navy: '#09111f' }
 const ALL = 'all'
 
-interface Props {
-  initialProducts: Product[]
-}
+function catColor(_cat: string) { return C.cyan }
+
+interface Props { initialProducts: Product[] }
 
 export default function CatalogueClient({ initialProducts }: Props) {
   const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [selectedType, setSelectedType] = useState(searchParams.get('type') || ALL)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || ALL)
-  const [showFilters, setShowFilters] = useState(false)
 
-  // Sync filtres quand l'URL change (navigation depuis le menu, soft nav)
   useEffect(() => {
     setSelectedType(searchParams.get('type') || ALL)
     setSelectedCategory(searchParams.get('category') || ALL)
@@ -43,132 +42,181 @@ export default function CatalogueClient({ initialProducts }: Props) {
     })
   }, [initialProducts, selectedType, selectedCategory, search])
 
-  const resetFilters = () => {
-    setSelectedType(ALL)
-    setSelectedCategory(ALL)
-    setSearch('')
-  }
+  const resetFilters = () => { setSelectedType(ALL); setSelectedCategory(ALL); setSearch('') }
+  const hasFilters = selectedType !== ALL || selectedCategory !== ALL || !!search
 
-  const hasFilters = selectedType !== ALL || selectedCategory !== ALL || search
+  const TYPES = [
+    { v: ALL,               l: 'Tous',            color: C.cyan    },
+    { v: 'sur_mesure',      l: 'Sur mesure',      color: C.cyan    },
+    { v: 'taille_standard', l: 'Taille standard', color: C.magenta },
+  ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Barre de recherche + filtres */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+    <div className="relative">
+    {/* Filigrane COMINK */}
+    <div className="absolute inset-0 opacity-[0.018] pointer-events-none"
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='120'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial Black%2CArial' font-weight='900' font-size='42' fill='white' letter-spacing='6' transform='rotate(-18 150 60)'%3ECOMINK%3C/text%3E%3C/svg%3E")`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: '300px 120px',
+      }}
+    />
+    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      {/* Filtres toujours visibles */}
+      <div className="rounded-xl p-5 mb-6"
+        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+
+        {/* Recherche */}
+        <div className="relative mb-5">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             placeholder="Rechercher un produit…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none transition-shadow"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+            onFocus={e => (e.target.style.boxShadow = `0 0 0 2px ${C.cyan}40`)}
+            onBlur={e => (e.target.style.boxShadow = '')}
           />
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-medium bg-white hover:bg-slate-50 transition-colors"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          Filtres
-          {hasFilters && <span className="bg-blue-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
-        </button>
-        {hasFilters && (
-          <button onClick={resetFilters} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 px-3 py-2.5 border border-slate-200 rounded-lg bg-white">
-            <X className="w-3.5 h-3.5" /> Effacer
-          </button>
-        )}
-      </div>
 
-      {/* Panel filtres */}
-      {showFilters && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* Type */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Type</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] mb-3" style={{ color: C.cyan }}>Type</p>
             <div className="flex flex-wrap gap-2">
-              {[{ v: ALL, l: 'Tous' }, { v: 'sur_mesure', l: 'Sur mesure' }, { v: 'taille_standard', l: 'Taille standard' }].map(opt => (
-                <button
-                  key={opt.v}
-                  onClick={() => setSelectedType(opt.v)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectedType === opt.v ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 text-slate-600 hover:border-blue-300'}`}
-                >
+              {TYPES.map(opt => (
+                <button key={opt.v} onClick={() => setSelectedType(opt.v)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                  style={selectedType === opt.v
+                    ? { background: opt.color, color: '#fff', border: `1px solid ${opt.color}` }
+                    : { background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.12)' }}>
                   {opt.l}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Catégorie */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Catégorie</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] mb-3" style={{ color: C.magenta }}>Catégorie</p>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedCategory(ALL)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectedCategory === ALL ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 text-slate-600 hover:border-blue-300'}`}
-              >
+              <button onClick={() => setSelectedCategory(ALL)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={selectedCategory === ALL
+                  ? { background: C.cyan, color: '#fff', border: `1px solid ${C.cyan}` }
+                  : { background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.12)' }}>
                 Toutes
               </button>
               {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectedCategory === cat ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 text-slate-600 hover:border-blue-300'}`}
-                >
+                <button key={cat} onClick={() => setSelectedCategory(cat)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                  style={selectedCategory === cat
+                    ? { background: C.cyan, color: '#fff', border: `1px solid ${C.cyan}` }
+                    : { background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.12)' }}>
                   {CATEGORY_LABELS[cat] || cat}
                 </button>
               ))}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Résultats */}
-      <p className="text-sm text-slate-500 mb-4">{filtered.length} produit{filtered.length > 1 ? 's' : ''}</p>
+        {/* Reset si filtres actifs */}
+        {hasFilters && (
+          <div className="mt-4 pt-4 flex justify-end" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <button onClick={resetFilters}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <X className="w-3 h-3" /> Effacer les filtres
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Compteur */}
+      <p className="text-sm font-semibold mb-5" style={{ color: '#94a3b8' }}>
+        <span className="font-black" style={{ color: C.cyan }}>{filtered.length}</span> produit{filtered.length > 1 ? 's' : ''}
+      </p>
 
       {filtered.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-slate-400 text-sm">Aucun produit ne correspond à votre recherche.</p>
-          <button onClick={resetFilters} className="mt-4 text-blue-600 text-sm font-semibold hover:underline">
+          <p className="text-sm font-semibold" style={{ color: '#94a3b8' }}>Aucun produit ne correspond à votre recherche.</p>
+          <button onClick={resetFilters} className="mt-4 text-sm font-semibold hover:underline" style={{ color: C.cyan }}>
             Réinitialiser les filtres
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map(product => {
+          {filtered.map((product, i) => {
             const img = product.image_url || product.images?.[0]
             const minPrice = product.price_per_m2
-              ? `dès ${product.price_per_m2.toFixed(2)} € / m² HTVA`
+              ? `dès ${product.price_per_m2.toFixed(2)} € / m²`
               : product.standard_sizes?.length
-                ? `dès ${Math.min(...product.standard_sizes.filter(s => s.price > 0).map(s => s.price)).toFixed(2)} € HTVA`
+                ? `dès ${Math.min(...product.standard_sizes.filter((s: any) => s.price > 0).map((s: any) => s.price)).toFixed(2)} €`
                 : null
+            const accent = catColor(product.category)
 
             return (
               <Link
                 key={product.id}
                 href={`/produit/${product.id}`}
-                className="group bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all overflow-hidden"
+                className="group relative block rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/60"
+                style={{ background: '#1a3a5e', border: `2px solid ${C.cyan}` }}
               >
-                <div className="aspect-[4/3] overflow-hidden bg-slate-100">
-                  {img ? (
-                    <img src={img} alt={product.name} loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">Pas d'image</div>
-                  )}
-                </div>
-                <div className="p-3">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wide">{CATEGORY_LABELS[product.category] || product.category}</p>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2 mt-0.5 leading-snug">
+                {/* ── En-tête : nom produit centré en négatif ── */}
+                <div className="px-3 pt-3.5 pb-3 text-center"
+                  style={{ background: '#0d2240', borderBottom: `2px solid ${C.cyan}40` }}>
+                  <h3 className="text-base font-black leading-snug line-clamp-2" style={{ color: '#ffffff' }}>
                     {product.name}
                   </h3>
-                  {minPrice && <p className="text-xs font-bold text-blue-600 mt-1">{minPrice}</p>}
-                  <span className="inline-flex items-center mt-2 text-[10px] font-semibold text-blue-600 group-hover:gap-1 transition-all">
-                    Voir le produit →
-                  </span>
+                </div>
+
+                {/* ── Photo ── */}
+                <div className="aspect-square overflow-hidden relative flex items-center justify-center"
+                  style={{ background: '#1e3f65' }}>
+                  {img ? (
+                    <img src={img} alt={product.name} loading="lazy"
+                      className="w-full h-full object-contain p-3"
+                      style={{ transform: 'scale(1)', transition: 'transform 0.7s ease' }}
+                      onMouseEnter={e => ((e.currentTarget as HTMLImageElement).style.transform = 'scale(1.08)')}
+                      onMouseLeave={e => ((e.currentTarget as HTMLImageElement).style.transform = 'scale(1)')}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <svg className="w-10 h-10" style={{ color: '#475569' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  {/* Overlay + CTA hover */}
+                  <div className="absolute inset-0 flex items-end justify-center pb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 60%)' }}>
+                    <span className="flex items-center gap-1.5 text-sm font-black text-white px-4 py-2 rounded-full"
+                      style={{ background: C.cyan }}>
+                      Configurer <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+
+                {/* ── Catégorie + Prix ── */}
+                <div className="px-3 py-2.5 flex items-center justify-between"
+                  style={{ background: '#0d2240', borderTop: `2px solid ${C.cyan}40` }}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: accent }}>
+                    {CATEGORY_LABELS[product.category] || product.category}
+                  </p>
+                  {minPrice && (
+                    <p className="text-sm font-black" style={{ color: '#ffffff' }}>{minPrice}</p>
+                  )}
                 </div>
               </Link>
             )
           })}
         </div>
       )}
+    </div>
     </div>
   )
 }

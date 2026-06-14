@@ -74,7 +74,22 @@ export async function POST(req: NextRequest) {
       }
 
       // ── Odoo sync (non-blocking) ────────────────────────────────────────────
-      if (itemsFullRaw) {
+      // Vérifier si ce client est facturé en fin de mois → pas de facture immédiate
+      let skipOdooSync = false
+      if (clientEmail) {
+        const { data: clientRecord } = await supabase
+          .from('clients')
+          .select('billing_end_of_month')
+          .ilike('email', clientEmail)
+          .limit(1)
+          .maybeSingle()
+        if (clientRecord?.billing_end_of_month) {
+          skipOdooSync = true
+          console.log(`[webhook] Odoo sync skipped for ${clientEmail} (billing_end_of_month)`)
+        }
+      }
+
+      if (!skipOdooSync && itemsFullRaw) {
         try {
           const itemsFull = JSON.parse(itemsFullRaw) as Array<{
             product_name: string

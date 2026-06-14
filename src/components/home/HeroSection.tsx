@@ -6,7 +6,7 @@ import { ArrowRight } from 'lucide-react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 
 // ── CMYK brand colors ─────────────────────────────────────────────────────────
-const C = { cyan: '#00AEEF', magenta: '#E4007C', yellow: '#F5C400', navy: '#060e1f' }
+const C = { cyan: '#00AEEF', magenta: '#E8001A', yellow: '#F5C400', navy: '#060e1f' }
 
 const MARQUEE_ITEMS = [
   'BANDEROLES','BÂCHES','ROLL-UP','DIBOND','FOREX',
@@ -166,22 +166,8 @@ export default function HeroSection() {
           {/* Texte */}
           <div className="flex flex-col justify-center">
 
-            {/* Badge */}
-            <motion.div
-              className="flex items-center gap-2 mb-6"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <span className="text-[11px] font-black uppercase tracking-[0.18em] px-3 py-1.5 rounded-full"
-                style={{ color: C.cyan, border: `1px solid ${C.cyan}50`, background: `${C.cyan}15` }}>
-                Imprimerie Grand Format
-              </span>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Liège · Belgique</span>
-            </motion.div>
-
             {/* H1 */}
-            <h1 className="text-[2.6rem] sm:text-[3.8rem] lg:text-[4.8rem] font-black tracking-[-0.03em] leading-[0.9] mb-5">
+            <h1 className="text-[3.4rem] sm:text-[5rem] lg:text-[6.2rem] font-black tracking-[-0.04em] leading-[0.88] mb-5">
               {[
                 { text: "L'IMPRIMERIE", delay: 0 },
                 { text: 'GRAND FORMAT', delay: 0.07 },

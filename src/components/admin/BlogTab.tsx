@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { Plus, Edit2, Trash2, Eye, Globe, FileText, Loader2, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Edit2, Trash2, Eye, Globe, FileText, Loader2, X, Sparkles, ChevronDown, ChevronUp, Upload, ImageIcon } from 'lucide-react'
 
 const RichTextEditor = dynamic(() => import('./RichTextEditor'), { ssr: false })
 
@@ -42,15 +42,35 @@ function PostEditor({
   const [title, setTitle]         = useState(post?.title ?? '')
   const [excerpt, setExcerpt]     = useState(post?.excerpt ?? '')
   const [content, setContent]     = useState(post?.content ?? '')
-  const [coverImage, setCoverImage] = useState(post?.cover_image ?? '')
+  const [coverImage, setCoverImage]   = useState(post?.cover_image ?? '')
+  const [uploadingImg, setUploadingImg] = useState(false)
   const [tags, setTags]           = useState((post?.tags ?? []).join(', '))
   const [author, setAuthor]       = useState(post?.author_name ?? 'Équipe Comink')
   const [seoTitle, setSeoTitle]   = useState(post?.seo_title ?? '')
   const [seoDesc, setSeoDesc]     = useState(post?.seo_description ?? '')
   const [seoKw, setSeoKw]         = useState(post?.seo_keywords ?? '')
   const [published, setPublished] = useState(post?.published ?? false)
+  const [publishedAt, setPublishedAt] = useState(
+    post?.published_at ? new Date(post.published_at).toISOString().slice(0, 16) : ''
+  )
   const [saving, setSaving]       = useState(false)
   const [showSeo, setShowSeo]     = useState(false)
+
+  const handleImageUpload = useCallback(async (file: File) => {
+    setUploadingImg(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/blog/upload-image', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error)
+      setCoverImage(data.url)
+    } catch (e: any) {
+      alert(`Erreur upload image : ${e.message}`)
+    } finally {
+      setUploadingImg(false)
+    }
+  }, [])
 
   // ── Génération IA ──────────────────────────────────────────────────────────
   const [showAI, setShowAI]           = useState(isNew)
@@ -91,6 +111,7 @@ function PostEditor({
     if (!title.trim()) return alert('Le titre est requis.')
     setSaving(true)
     try {
+      const willPublish = publish !== undefined ? publish : published
       const payload = {
         title:           title.trim(),
         excerpt:         excerpt.trim() || null,
@@ -101,7 +122,8 @@ function PostEditor({
         seo_title:       seoTitle.trim() || null,
         seo_description: seoDesc.trim() || null,
         seo_keywords:    seoKw.trim() || null,
-        published:       publish !== undefined ? publish : published,
+        published:       willPublish,
+        published_at:    publishedAt ? new Date(publishedAt).toISOString() : (willPublish ? new Date().toISOString() : null),
       }
       const url    = isNew ? '/api/admin/blog' : `/api/admin/blog/${post!.id}`
       const method = isNew ? 'POST' : 'PATCH'
@@ -258,20 +280,42 @@ function PostEditor({
             </div>
           </div>
 
-          {/* Image de couverture + Tags + Auteur */}
+          {/* Image de couverture + Tags + Auteur + Date publication */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Image de couverture — upload */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Image de couverture (URL)</label>
-              <input
-                value={coverImage}
-                onChange={e => setCoverImage(e.target.value)}
-                placeholder="https://…"
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-              {coverImage && (
-                <img src={coverImage} alt="" className="mt-2 h-20 w-full object-cover rounded-lg border border-slate-200" />
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Image de couverture</label>
+              {coverImage ? (
+                <div className="relative group">
+                  <img src={coverImage} alt="" className="h-32 w-full object-cover rounded-lg border border-slate-200" />
+                  <button
+                    type="button"
+                    onClick={() => setCoverImage('')}
+                    className="absolute top-1.5 right-1.5 bg-white/90 hover:bg-red-50 border border-slate-200 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3.5 h-3.5 text-red-500" />
+                  </button>
+                  <label className="absolute bottom-1.5 right-1.5 cursor-pointer bg-white/90 hover:bg-blue-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-semibold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                    <Upload className="w-3 h-3" /> Remplacer
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+                      onChange={e => e.target.files?.[0] && handleImageUpload(e.target.files[0])} />
+                  </label>
+                </div>
+              ) : (
+                <label className={`flex flex-col items-center justify-center gap-2 h-32 w-full border-2 border-dashed rounded-lg cursor-pointer transition-colors
+                  ${uploadingImg ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/40'}`}>
+                  {uploadingImg ? (
+                    <><Loader2 className="w-6 h-6 text-blue-500 animate-spin" /><span className="text-xs text-blue-500 font-medium">Upload en cours…</span></>
+                  ) : (
+                    <><ImageIcon className="w-7 h-7 text-slate-300" /><span className="text-xs text-slate-400 font-medium">Cliquer pour choisir une image</span><span className="text-[11px] text-slate-300">JPG, PNG, WebP · max 10 Mo</span></>
+                  )}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploadingImg}
+                    onChange={e => e.target.files?.[0] && handleImageUpload(e.target.files[0])} />
+                </label>
               )}
             </div>
+
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tags (séparés par virgule)</label>
@@ -290,6 +334,16 @@ function PostEditor({
                   placeholder="Équipe Comink"
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date de publication</label>
+                <input
+                  type="datetime-local"
+                  value={publishedAt}
+                  onChange={e => setPublishedAt(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Laisser vide = date actuelle à la publication</p>
               </div>
             </div>
           </div>

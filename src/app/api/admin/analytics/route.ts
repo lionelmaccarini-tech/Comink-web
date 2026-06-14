@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   try {
     const range = parseInt(req.nextUrl.searchParams.get('range') ?? '7') || 7
     const since = daysAgo(range)
-    const supabase = await createServiceClient()
+    const supabase = createAdminClient()
 
     // ── Active now (last 5 min) ──────────────────────────────────────────────
     const { data: activeSessions } = await supabase

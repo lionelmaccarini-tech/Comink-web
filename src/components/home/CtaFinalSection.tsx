@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ShoppingCart, FileText, ArrowRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-const C = { cyan: '#00AEEF', magenta: '#E4007C', yellow: '#F5C400', navy: '#060e1f' }
+const C = { cyan: '#00AEEF', magenta: '#E8001A', yellow: '#F5C400', navy: '#060e1f' }
 
 // Chevrons CMYK décoratifs (version compacte)
 function CMYKAccent({ className }: { className?: string }) {

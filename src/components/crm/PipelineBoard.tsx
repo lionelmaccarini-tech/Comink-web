@@ -29,6 +29,7 @@ interface Quote {
   next_action_date?: string
   assignee?: { full_name: string }
   source?: string
+  created_at?: string
 }
 
 export default function PipelineBoard({ initialStage }: { initialStage?: string }) {
@@ -117,6 +118,11 @@ export default function PipelineBoard({ initialStage }: { initialStage?: string 
                       {q.client_company && (
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 truncate">
                           <Building2 className="w-3 h-3 flex-shrink-0" /> {q.client_company}
+                        </p>
+                      )}
+                      {q.created_at && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          📅 {new Date(q.created_at).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       )}
                       {/* Amount */}

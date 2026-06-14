@@ -120,8 +120,8 @@ export default function QuoteViewPage() {
   // ─── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#09111f' }}>
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#00AEEF' }} />
       </div>
     )
   }
@@ -129,11 +129,14 @@ export default function QuoteViewPage() {
   // ─── Error ─────────────────────────────────────────────────────────────────
   if (error || !quote) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl border border-red-200 p-8 text-center max-w-md w-full shadow-sm">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-800 mb-2">Devis introuvable</h1>
-          <p className="text-slate-500 text-sm">{error || 'Ce lien de devis est invalide ou a expiré.'}</p>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#09111f' }}>
+        <div
+          className="rounded-2xl p-8 text-center max-w-md w-full"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
+        >
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+          <h1 className="text-xl font-bold text-white mb-2">Devis introuvable</h1>
+          <p className="text-slate-400 text-sm">{error || 'Ce lien de devis est invalide ou a expiré.'}</p>
         </div>
       </div>
     )
@@ -143,73 +146,92 @@ export default function QuoteViewPage() {
   const validUntil = quote.valid_until ? fmtDate(quote.valid_until) : null
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
+    <div className="min-h-screen py-8 px-4" style={{ background: '#09111f' }}>
       <div className="max-w-3xl mx-auto">
 
-        {/* Logo */}
+        {/* Logo + barre CMYK */}
         <div className="text-center mb-8">
           <Image
             src={LOGO_URL}
             alt="Comink"
             width={140}
             height={44}
-            className="mx-auto"
+            className="mx-auto mb-4"
             unoptimized
           />
+          {/* Barre CMYK décorative */}
+          <div className="flex h-1 rounded-full overflow-hidden max-w-xs mx-auto">
+            <div className="flex-1" style={{ background: '#00AEEF' }} />
+            <div className="flex-1" style={{ background: '#E8001A' }} />
+            <div className="flex-1" style={{ background: '#F5C400' }} />
+            <div className="flex-1" style={{ background: '#09111f', border: '1px solid rgba(255,255,255,0.2)' }} />
+          </div>
         </div>
 
         {/* Already accepted */}
         {alreadyAccepted && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center mb-6">
-            <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-            <h2 className="font-bold text-emerald-800 text-lg mb-1">Ce devis a déjà été validé</h2>
-            <p className="text-emerald-600 text-sm">Votre commande est en cours de traitement.</p>
+          <div
+            className="rounded-2xl p-6 text-center mb-6"
+            style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}
+          >
+            <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+            <h2 className="font-bold text-emerald-400 text-lg mb-1">Ce devis a déjà été validé</h2>
+            <p className="text-emerald-400 text-sm opacity-80">Votre commande est en cours de traitement.</p>
           </div>
         )}
 
         {/* Validated confirmation */}
         {validated && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center mb-6">
-            <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-            <h2 className="font-bold text-emerald-800 text-lg mb-1">Devis ajouté au panier !</h2>
-            <p className="text-emerald-600 text-sm">Redirection vers le panier...</p>
+          <div
+            className="rounded-2xl p-6 text-center mb-6"
+            style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}
+          >
+            <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+            <h2 className="font-bold text-emerald-400 text-lg mb-1">Devis ajouté au panier !</h2>
+            <p className="text-emerald-400 text-sm opacity-80">Redirection vers le panier...</p>
           </div>
         )}
 
         {/* Quote card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
 
           {/* Header */}
-          <div className="bg-[#1e3a5f] px-6 py-5">
+          <div className="px-6 py-5" style={{ background: '#0d1f38' }}>
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <p className="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-1">Devis</p>
-                <h1 className="text-white text-2xl font-bold">{quote.quote_number}</h1>
-                <p className="text-blue-200 text-sm mt-1">
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#00AEEF' }}>Devis</p>
+                <h1 className="text-white text-2xl font-black">{quote.quote_number}</h1>
+                <p className="text-slate-300 text-sm mt-1">
                   Établi le {fmtDate(quote.created_at)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-blue-200 text-xs mb-1">Total TTC</p>
+                <p className="text-slate-400 text-xs mb-1">Total TTC</p>
                 <p className="text-white text-3xl font-bold">{fmt(quote.total ?? 0)}</p>
               </div>
             </div>
           </div>
 
           {/* Client info */}
-          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+          <div
+            className="px-6 py-4"
+            style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+          >
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">Client</p>
-                <p className="font-semibold text-slate-800">{quote.client_name}</p>
+                <p className="font-semibold text-white">{quote.client_name}</p>
                 {quote.client_company && (
-                  <p className="text-sm text-slate-500">{quote.client_company}</p>
+                  <p className="text-sm text-slate-400">{quote.client_company}</p>
                 )}
               </div>
               {quote.reference && (
                 <div>
                   <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">Votre référence</p>
-                  <p className="text-slate-700">{quote.reference}</p>
+                  <p className="text-slate-300">{quote.reference}</p>
                 </div>
               )}
             </div>
@@ -219,14 +241,14 @@ export default function QuoteViewPage() {
           <div className="px-6 py-4">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="pb-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Description</th>
-                  <th className="pb-2 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-14">Qté</th>
-                  <th className="pb-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">P.U. HT</th>
-                  <th className="pb-2 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">Total HT</th>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <th className="pb-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Description</th>
+                  <th className="pb-2 text-center text-xs font-semibold text-slate-400 uppercase tracking-wide w-14">Qté</th>
+                  <th className="pb-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide w-24">P.U. HT</th>
+                  <th className="pb-2 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide w-24">Total HT</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/10">
                 {lines.map((line, i) => {
                   const unitPrice = line.unit_price_ht ?? line.unit_price ?? 0
                   const qty = line.quantity ?? 1
@@ -235,9 +257,9 @@ export default function QuoteViewPage() {
                       ? ` — ${line.width_cm} × ${line.height_cm} cm`
                       : ''
                   return (
-                    <tr key={i} className="hover:bg-slate-50">
+                    <tr key={i} className="hover:bg-white/5">
                       <td className="py-3">
-                        <p className="font-medium text-slate-800">
+                        <p className="font-medium text-white">
                           {line.description || ''}
                           {dims && <span className="text-slate-400 font-normal">{dims}</span>}
                         </p>
@@ -245,29 +267,29 @@ export default function QuoteViewPage() {
                           <p className="text-xs text-slate-400 mt-0.5">{line.details}</p>
                         )}
                       </td>
-                      <td className="py-3 text-center text-slate-600">{qty}</td>
-                      <td className="py-3 text-right text-slate-600">{fmt(unitPrice)}</td>
-                      <td className="py-3 text-right font-semibold text-slate-800">{fmt(qty * unitPrice)}</td>
+                      <td className="py-3 text-center text-slate-300">{qty}</td>
+                      <td className="py-3 text-right text-slate-300">{fmt(unitPrice)}</td>
+                      <td className="py-3 text-right font-semibold text-white">{fmt(qty * unitPrice)}</td>
                     </tr>
                   )
                 })}
               </tbody>
-              <tfoot className="border-t-2 border-slate-200">
+              <tfoot style={{ borderTop: '2px solid rgba(255,255,255,0.1)' }}>
                 {quote.subtotal != null ? (
                   <tr>
-                    <td colSpan={3} className="pt-3 pb-1 text-right text-sm text-slate-500">Sous-total HT</td>
-                    <td className="pt-3 pb-1 text-right text-sm font-medium text-slate-700">{fmt(quote.subtotal ?? 0)}</td>
+                    <td colSpan={3} className="pt-3 pb-1 text-right text-sm text-slate-400">Sous-total HT</td>
+                    <td className="pt-3 pb-1 text-right text-sm font-medium text-slate-300">{fmt(quote.subtotal ?? 0)}</td>
                   </tr>
                 ) : null}
                 {quote.tax != null ? (
                   <tr>
-                    <td colSpan={3} className="py-1 text-right text-sm text-slate-500">TVA</td>
-                    <td className="py-1 text-right text-sm text-slate-600">{fmt(quote.tax ?? 0)}</td>
+                    <td colSpan={3} className="py-1 text-right text-sm text-slate-400">TVA</td>
+                    <td className="py-1 text-right text-sm text-slate-300">{fmt(quote.tax ?? 0)}</td>
                   </tr>
                 ) : null}
-                <tr className="bg-slate-50">
-                  <td colSpan={3} className="px-2 py-3 text-right font-bold text-slate-800">Total TTC</td>
-                  <td className="px-2 py-3 text-right font-bold text-xl text-[#1e3a5f]">{fmt(quote.total ?? 0)}</td>
+                <tr style={{ background: '#0d1f38' }}>
+                  <td colSpan={3} className="px-2 py-3 text-right font-bold text-white">Total TTC</td>
+                  <td className="px-2 py-3 text-right font-bold text-xl" style={{ color: '#00AEEF' }}>{fmt(quote.total ?? 0)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -276,7 +298,10 @@ export default function QuoteViewPage() {
           {/* Validity notice */}
           {validUntil && (
             <div className="px-6 pb-2">
-              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+              <p
+                className="text-sm rounded-lg px-4 py-2"
+                style={{ background: 'rgba(245,196,0,0.1)', border: '1px solid rgba(245,196,0,0.2)', color: '#F5C400' }}
+              >
                 Ce devis est valable jusqu'au <strong>{validUntil}</strong>
               </p>
             </div>
@@ -285,20 +310,27 @@ export default function QuoteViewPage() {
           {/* Notes */}
           {quote.notes && (
             <div className="px-6 pb-4">
-              <div className="bg-slate-50 rounded-lg px-4 py-3 text-sm text-slate-600">
-                <p className="font-semibold mb-1 text-slate-700">Remarques</p>
-                <p className="whitespace-pre-wrap">{quote.notes}</p>
+              <div
+                className="rounded-lg px-4 py-3 text-sm"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <p className="font-semibold mb-1 text-slate-300">Remarques</p>
+                <p className="whitespace-pre-wrap text-slate-400">{quote.notes}</p>
               </div>
             </div>
           )}
 
           {/* CTA */}
           {!alreadyAccepted && !validated && (
-            <div className="px-6 pb-6 pt-2 border-t border-slate-100">
+            <div
+              className="px-6 pb-6 pt-2"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            >
               <button
                 onClick={handleValidate}
                 disabled={validating}
-                className="w-full flex items-center justify-center gap-2.5 bg-[#1e3a5f] hover:bg-[#162e4d] text-white font-bold py-4 px-6 rounded-xl transition-colors disabled:opacity-60 text-base"
+                className="w-full flex items-center justify-center gap-2.5 text-white font-bold py-4 px-6 rounded-xl transition-opacity disabled:opacity-60 text-base hover:opacity-90"
+                style={{ background: '#00AEEF' }}
               >
                 {validating ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -320,7 +352,7 @@ export default function QuoteViewPage() {
           <p>Comink — Rue de Bruxelles 174h, 4340 Awans, Belgique</p>
           <p>+32 4 233 01 38 · info@comink.be</p>
           <p className="mt-2">
-            <a href="https://comink.be" className="hover:text-slate-600 transition-colors">comink.be</a>
+            <a href="https://comink.be" className="hover:text-slate-300 transition-colors" style={{ color: '#00AEEF' }}>comink.be</a>
           </p>
         </div>
 

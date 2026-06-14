@@ -29,12 +29,12 @@ function WireConfirmation({ orderRef }: { orderRef: string }) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-sky-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center max-w-md w-full">
-        <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-5" />
-        <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Commande enregistrée !</h1>
-        <p className="text-slate-500 text-sm mb-6">
-          Votre commande <span className="font-bold text-slate-700">#{orderRef}</span> est confirmée.
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#09111f' }}>
+      <div className="rounded-2xl p-10 text-center max-w-md w-full" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <CheckCircle className="w-16 h-16 mx-auto mb-5" style={{ color: '#00AEEF' }} />
+        <h1 className="text-2xl font-extrabold text-white mb-2">Commande enregistrée !</h1>
+        <p className="text-slate-400 text-sm mb-6">
+          Votre commande <span className="font-bold text-white">#{orderRef}</span> est confirmée.
           Veuillez effectuer un virement avec les coordonnées suivantes :
         </p>
 
@@ -43,7 +43,7 @@ function WireConfirmation({ orderRef }: { orderRef: string }) {
             <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
           </div>
         ) : (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left space-y-3 mb-6">
+          <div className="rounded-xl p-5 text-left space-y-3 mb-6" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <InfoRow label="Bénéficiaire" value={bank.wire_beneficiary} />
             <InfoRow label="IBAN"         value={bank.wire_iban || '—'} mono />
             <InfoRow label="BIC"          value={bank.wire_bic  || '—'} mono />
@@ -51,20 +51,24 @@ function WireConfirmation({ orderRef }: { orderRef: string }) {
           </div>
         )}
 
-        <p className="text-xs text-slate-500 mb-6">
+        <p className="text-xs text-slate-400 mb-6">
           Votre commande sera traitée dès réception du virement.
         </p>
 
         <div className="space-y-3">
-          <Link href="/compte" className="block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-colors">
+          <Link
+            href="/compte"
+            className="block font-bold py-3 rounded-xl text-sm transition-opacity hover:opacity-90 text-white"
+            style={{ background: '#00AEEF' }}
+          >
             Suivre ma commande
           </Link>
-          <Link href="/" className="block text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors">
+          <Link href="/" className="block text-slate-400 hover:text-slate-300 text-sm py-2 transition-colors">
             Retour à l&apos;accueil
           </Link>
         </div>
         <p className="text-xs text-slate-400 mt-6">
-          Questions ? <a href="tel:+3242330138" className="text-blue-600 hover:underline">+32 4 233 01 38</a>
+          Questions ? <a href="tel:+3242330138" className="hover:underline" style={{ color: '#00AEEF' }}>+32 4 233 01 38</a>
         </p>
       </div>
     </div>
@@ -73,32 +77,36 @@ function WireConfirmation({ orderRef }: { orderRef: string }) {
 
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex justify-between items-start gap-3">
-      <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{label}</span>
-      <span className={`text-sm text-slate-800 text-right ${mono ? 'font-mono' : 'font-semibold'}`}>{value}</span>
+    <div className="flex justify-between items-start gap-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+      <span className="text-xs font-semibold text-slate-400 flex-shrink-0">{label}</span>
+      <span className={`text-sm text-white text-right ${mono ? 'font-mono' : 'font-semibold'}`}>{value}</span>
     </div>
   )
 }
 
 function DefaultConfirmation() {
   return (
-    <div className="min-h-screen bg-sky-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center max-w-md w-full">
-        <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-5" />
-        <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Commande confirmée !</h1>
-        <p className="text-slate-500 text-sm mb-6">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#09111f' }}>
+      <div className="rounded-2xl p-10 text-center max-w-md w-full" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <CheckCircle className="w-16 h-16 mx-auto mb-5" style={{ color: '#00AEEF' }} />
+        <h1 className="text-2xl font-extrabold text-white mb-2">Commande confirmée !</h1>
+        <p className="text-slate-400 text-sm mb-6">
           Merci pour votre commande. Vous allez recevoir un email de confirmation. Notre équipe la traite dès maintenant.
         </p>
         <div className="space-y-3">
-          <Link href="/compte" className="block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-colors">
+          <Link
+            href="/compte"
+            className="block font-bold py-3 rounded-xl text-sm transition-opacity hover:opacity-90 text-white"
+            style={{ background: '#00AEEF' }}
+          >
             Suivre ma commande
           </Link>
-          <Link href="/" className="block text-slate-500 hover:text-slate-700 text-sm py-2 transition-colors">
+          <Link href="/" className="block text-slate-400 hover:text-slate-300 text-sm py-2 transition-colors">
             Retour à l&apos;accueil
           </Link>
         </div>
         <p className="text-xs text-slate-400 mt-6">
-          Questions ? <a href="tel:+3242330138" className="text-blue-600 hover:underline">+32 4 233 01 38</a>
+          Questions ? <a href="tel:+3242330138" className="hover:underline" style={{ color: '#00AEEF' }}>+32 4 233 01 38</a>
         </p>
       </div>
     </div>
@@ -128,7 +136,7 @@ function ConfirmationContent() {
 export default function ConfirmationPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-sky-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#09111f' }}>
         <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
       </div>
     }>

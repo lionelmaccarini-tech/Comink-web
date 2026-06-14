@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createServiceClient } from '@/lib/supabase/server'
+import { generateQuoteNumber } from '@/lib/utils'
 import fs from 'fs'
 import path from 'path'
 
@@ -505,31 +506,47 @@ async function runTool(
   }
 
   if (name === 'create_crm_lead') {
-    const body = {
-      client_name: input.client_name as string,
-      client_email: input.client_email as string,
-      client_company: (input.client_company as string) || undefined,
-      client_phone: (input.client_phone as string) || undefined,
-      notes: input.notes as string,
-      source: 'chat_angelo',
-      pipeline_stage: 'lead',
-      status: 'draft',
-      items: [],
-      subtotal: 0,
-      tax: 0,
-      total: 0,
+    try {
+      const clientName  = (input.client_name  as string) || ''
+      const clientEmail = (input.client_email as string) || ''
+      if (!clientName || !clientEmail) {
+        return 'Pour créer un lead, j\'ai besoin du nom et de l\'email du client. Peux-tu me les donner ?'
+      }
+      const supabase = await createServiceClient()
+      const quote_number = generateQuoteNumber()
+      const { data, error } = await supabase
+        .from('quotes')
+        .insert({
+          quote_number,
+          client_name:      clientName,
+          client_email:     clientEmail,
+          client_company:   (input.client_company as string) || null,
+          client_phone:     (input.client_phone   as string) || null,
+          notes:            (input.notes           as string) || null,
+          source:           'chat_angelo',
+          pipeline_stage:   'lead',
+          status:           'draft',
+          items:            [],
+          subtotal:         0,
+          tax:              0,
+          total:            0,
+          probability:      20,
+          delivery_method:  'pickup',
+          delivery_cost:    0,
+          delivery_country: 'BE',
+          blind_shipping:   false,
+        })
+        .select('quote_number')
+        .single()
+      if (error) {
+        console.error('[angelo create_crm_lead]', error)
+        return `Erreur lors de la création du lead: ${error.message}`
+      }
+      return `Lead créé avec succès (réf. ${data.quote_number}). Un de nos conseillers va contacter ${clientName} très prochainement.`
+    } catch (err: any) {
+      console.error('[angelo create_crm_lead]', err)
+      return `Erreur technique lors de la création du lead: ${err?.message ?? 'inconnue'}`
     }
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/crm/quotes`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-    )
-    if (!res.ok) return `Erreur lors de la création du lead: ${res.statusText}`
-    const data = await res.json()
-    return `Lead créé avec succès (réf. ${data.quote_number}). Un de nos commerciaux va contacter le client très prochainement.`
   }
 
   return 'Outil inconnu'

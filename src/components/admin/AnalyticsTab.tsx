@@ -181,15 +181,28 @@ export default function AnalyticsTab() {
   const [loading, setLoading] = useState(true)
   const [range, setRange]   = useState(7)
   const [autoRefresh, setAutoRefresh] = useState(true)
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch(`/api/admin/analytics?range=${range}`)
+      if (!res.ok) {
+        const text = await res.text()
+        console.error('[Analytics] API error', res.status, text)
+        setLoading(false)
+        return
+      }
       const json = await res.json()
+      if (json?.error) {
+        console.error('[Analytics] API returned error:', json.error)
+        setLoading(false)
+        return
+      }
       setData(json)
       setLastRefresh(new Date())
+    } catch (err) {
+      console.error('[Analytics] fetch failed:', err)
     } finally {
       setLoading(false)
     }
@@ -233,7 +246,7 @@ export default function AnalyticsTab() {
             Analytics visiteurs
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Dernière mise à jour : {lastRefresh.toLocaleTimeString('fr-BE')}
+            {lastRefresh ? `Dernière mise à jour : ${lastRefresh.toLocaleTimeString('fr-BE')}` : 'Chargement...'}
             {autoRefresh && ' · actualisation auto 30s'}
           </p>
         </div>

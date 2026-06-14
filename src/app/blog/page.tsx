@@ -28,20 +28,20 @@ export default async function BlogPage() {
   const posts = await getPosts()
 
   return (
-    <div className="min-h-screen bg-sky-50">
+    <div className="min-h-screen" style={{ background: '#09111f' }}>
       {/* Hero */}
-      <div className="bg-slate-900 text-white py-12">
+      <div className="text-white py-12" style={{ background: '#0d1f38' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">BLOG</p>
-          <h1 className="text-3xl md:text-4xl font-extrabold">Conseils & actualités</h1>
-          <p className="text-slate-400 mt-2">L'expertise Comink au service de vos projets d'impression.</p>
+          <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#00AEEF' }}>BLOG</p>
+          <h1 className="text-3xl md:text-4xl font-black text-white">Conseils &amp; actualités</h1>
+          <p className="text-slate-300 mt-2">L'expertise Comink au service de vos projets d'impression.</p>
         </div>
       </div>
 
       {/* Content with search */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {posts.length === 0 ? (
-          <p className="text-slate-500 text-center py-20">Articles à venir bientôt.</p>
+          <p className="text-slate-400 text-center py-20">Articles à venir bientôt.</p>
         ) : (
           <BlogSearch posts={posts} />
         )}

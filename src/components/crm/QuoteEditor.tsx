@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Send, Save, X, Package, AlertCircle, Truck, Store, Zap, ChevronDown, Loader2, Eye, EyeOff, Lock, Package2 } from 'lucide-react'
+import { Plus, Trash2, Send, Save, X, Package, AlertCircle, Truck, Store, Zap, ChevronDown, Loader2, Eye, EyeOff, Lock, Package2, Clock, MessageSquare, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { calcDeliveryCost, type DeliverySettings } from '@/lib/utils'
 import ClientPicker, { ClientData } from './ClientPicker'
@@ -62,12 +62,13 @@ const STAGE_OPTS = [
 ]
 
 const SOURCE_OPTS = [
-  { value: 'web',       label: 'Site web' },
-  { value: 'phone',     label: 'Téléphone' },
-  { value: 'email',     label: 'Email' },
-  { value: 'referral',  label: 'Référence' },
-  { value: 'event',     label: 'Salon / événement' },
-  { value: 'other',     label: 'Autre' },
+  { value: 'web',         label: 'Site web' },
+  { value: 'phone',       label: 'Téléphone' },
+  { value: 'email',       label: 'Email' },
+  { value: 'referral',    label: 'Référence' },
+  { value: 'event',       label: 'Salon / événement' },
+  { value: 'chat_angelo', label: '💬 Chat Angelo' },
+  { value: 'other',       label: 'Autre' },
 ]
 
 const DELIVERY_OPTS = [
@@ -183,6 +184,48 @@ export default function QuoteEditor({ initialData }: Props) {
   const [currentUserId,   setCurrentUserId]   = useState<string | null>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
 
+  // Activity history
+  interface Activity {
+    id: string
+    type: string
+    content: string
+    old_stage?: string
+    new_stage?: string
+    created_at: string
+    author?: { full_name: string }
+  }
+  const [activities,     setActivities]     = useState<Activity[]>([])
+  const [newNote,        setNewNote]        = useState('')
+  const [addingNote,     setAddingNote]     = useState(false)
+  const [activityLoading, setActivityLoading] = useState(false)
+
+  const loadActivities = useCallback(() => {
+    if (!initialData?.id) return
+    setActivityLoading(true)
+    fetch(`/api/crm/activities?quote_id=${initialData.id}`)
+      .then(r => r.json())
+      .then(d => setActivities(Array.isArray(d) ? d : []))
+      .finally(() => setActivityLoading(false))
+  }, [initialData?.id])
+
+  const submitNote = async () => {
+    if (!newNote.trim() || !initialData?.id) return
+    setAddingNote(true)
+    await fetch('/api/crm/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quote_id:   initialData.id,
+        type:       'note',
+        content:    newNote.trim(),
+        created_by: currentUserId,
+      }),
+    })
+    setNewNote('')
+    loadActivities()
+    setAddingNote(false)
+  }
+
   // ── Init: load user, vendeurs, products, settings ──────────────────────────
   useEffect(() => {
     // Load vendeurs
@@ -209,6 +252,32 @@ export default function QuoteEditor({ initialData }: Props) {
         .single()
       setCurrentUserRole(profile?.role ?? null)
     })
+
+    // Auto-compléter l'adresse de facturation depuis le profil client si elle est absente
+    if (isEdit && initialData?.client_email && !initialData?.billing_line1) {
+      fetch(`/api/crm/clients?search=${encodeURIComponent(initialData.client_email)}`)
+        .then(r => r.json())
+        .then((results: ClientData[]) => {
+          const match = results.find((c: ClientData) =>
+            c.email?.toLowerCase() === initialData.client_email?.toLowerCase()
+          )
+          if (match && (match.billing_line1 || match.billing_city || match.phone || match.vat_number || match.company)) {
+            setClient(prev => ({
+              ...prev,
+              id:                  match.id                  || prev.id,
+              company:             match.company             || prev.company,
+              phone:               match.phone               || prev.phone,
+              vat_number:          match.vat_number          || prev.vat_number,
+              billing_line1:       match.billing_line1       || prev.billing_line1,
+              billing_line2:       match.billing_line2       || prev.billing_line2,
+              billing_city:        match.billing_city        || prev.billing_city,
+              billing_postal_code: match.billing_postal_code || prev.billing_postal_code,
+              billing_country:     match.billing_country     || prev.billing_country || 'BE',
+            }))
+          }
+        })
+        .catch(() => {})
+    }
 
     // Load quote validity + delivery settings in one call
     fetch('/api/settings/payment-delivery')
@@ -245,7 +314,10 @@ export default function QuoteEditor({ initialData }: Props) {
           setValidUntil(d.toISOString().split('T')[0])
         })
     }
-  }, [isEdit])
+
+    // Load activity history for existing quotes
+    if (isEdit) loadActivities()
+  }, [isEdit, loadActivities])
 
   // ── Auto-compute delivery cost when inputs change ──────────────────────────
   useEffect(() => {
@@ -929,6 +1001,125 @@ export default function QuoteEditor({ initialData }: Props) {
 
             </div>
           </div>
+
+          {/* Historique des activités */}
+          {isEdit && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-slate-400" />
+                Historique
+              </h2>
+
+              {/* Ajouter une note */}
+              <div className="mb-4">
+                <textarea
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  rows={2}
+                  placeholder="Ajouter une note, un appel, une action..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={submitNote}
+                  disabled={addingNote || !newNote.trim()}
+                  className="mt-1.5 w-full flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors disabled:opacity-40">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  {addingNote ? 'Ajout...' : 'Ajouter'}
+                </button>
+              </div>
+
+              {/* Liste des événements */}
+              {activityLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 text-slate-300 animate-spin" />
+                </div>
+              ) : activities.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-2">Aucun historique</p>
+              ) : (
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {activities.map(a => {
+                    const isStage = a.type === 'status_change'
+                    const isNote  = a.type === 'note'
+                    const isEmail = a.type === 'email_sent'
+                    const d = new Date(a.created_at)
+                    const dateStr = d.toLocaleDateString('fr-BE', { day: 'numeric', month: 'short', year: 'numeric' })
+                    const timeStr = d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <div key={a.id} className="flex gap-2.5">
+                        {/* Icône */}
+                        <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[11px]
+                          ${isStage ? 'bg-violet-100 text-violet-600' : isEmail ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {isStage ? '↔' : isEmail ? '✉' : '💬'}
+                        </div>
+                        {/* Contenu */}
+                        <div className="flex-1 min-w-0">
+                          {isStage && a.old_stage && a.new_stage ? (
+                            <p className="text-xs text-slate-700 leading-snug flex items-center gap-1 flex-wrap">
+                              <span className="font-medium">{a.old_stage}</span>
+                              <ArrowRight className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                              <span className="font-medium text-violet-600">{a.new_stage}</span>
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-700 leading-snug">{a.content}</p>
+                          )}
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {dateStr} à {timeStr}
+                            {a.author?.full_name && <span> · {a.author.full_name}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Conversation Angelo — affichée dans la sidebar quand source = chat_angelo */}
+          {source === 'chat_angelo' && notes && (
+            <div className="bg-white rounded-xl border border-sky-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center text-sky-600 font-bold text-xs flex-shrink-0">R</div>
+                <h3 className="font-semibold text-slate-800 text-sm">Conversation Angelo</h3>
+              </div>
+              <div
+                className="overflow-y-auto space-y-2 text-xs leading-relaxed"
+                style={{ maxHeight: '420px' }}
+              >
+                {notes.split('\n\n').map((block: string, i: number) => {
+                  const isUser    = block.startsWith('👤')
+                  const isAngelo  = block.startsWith('🤖')
+                  const isHeader  = block.startsWith('===')
+                  if (isHeader) return (
+                    <p key={i} className="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1">
+                      {block.replace(/===/g, '').trim()}
+                    </p>
+                  )
+                  if (isUser) {
+                    const [label, ...rest] = block.split('\n')
+                    return (
+                      <div key={i} className="bg-sky-50 rounded-lg px-3 py-2">
+                        <p className="font-semibold text-sky-700 mb-0.5">{label}</p>
+                        <p className="text-slate-700 whitespace-pre-wrap">{rest.join('\n')}</p>
+                      </div>
+                    )
+                  }
+                  if (isAngelo) {
+                    const [label, ...rest] = block.split('\n')
+                    return (
+                      <div key={i} className="bg-slate-50 rounded-lg px-3 py-2">
+                        <p className="font-semibold text-slate-500 mb-0.5">{label}</p>
+                        <p className="text-slate-700 whitespace-pre-wrap">{rest.join('\n')}</p>
+                      </div>
+                    )
+                  }
+                  return block.trim() ? (
+                    <p key={i} className="text-slate-500 whitespace-pre-wrap">{block}</p>
+                  ) : null
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

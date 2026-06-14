@@ -11,14 +11,15 @@ import LottiePlayer from '@/components/ui/LottiePlayer'
 // ── Indicateur résultat animé ─────────────────────────────────────────────────
 function ResultIndicator({ status, score }: { status: 'ok' | 'warning' | 'error'; score: number }) {
   const config = {
-    ok:      { emoji: '👍', label: 'Prêt pour l\'impression',   bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', score: 'text-emerald-600' },
-    warning: { emoji: '👉', label: 'Quelques points à vérifier', bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700',   score: 'text-amber-600'   },
-    error:   { emoji: '👎', label: 'Corrections nécessaires',    bg: 'bg-red-50',     border: 'border-red-200',     text: 'text-red-700',     score: 'text-red-600'     },
+    ok:      { emoji: '👍', label: 'Prêt pour l\'impression',   bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', text: 'text-emerald-400', score: 'text-emerald-400' },
+    warning: { emoji: '👉', label: 'Quelques points à vérifier', bg: 'rgba(245,196,0,0.1)',  border: 'rgba(245,196,0,0.2)',  text: 'text-[#F5C400]',   score: 'text-[#F5C400]'   },
+    error:   { emoji: '👎', label: 'Corrections nécessaires',    bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.2)', text: 'text-red-400',     score: 'text-red-400'     },
   }[status]
 
   return (
     <motion.div
-      className={`flex items-center gap-4 rounded-2xl border-2 p-5 ${config.bg} ${config.border}`}
+      className={`flex items-center gap-4 rounded-2xl border-2 p-5 ${config.text}`}
+      style={{ background: config.bg, borderColor: config.border }}
       initial={{ scale: 0.5, opacity: 0, y: 20 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 18 }}
@@ -251,17 +252,18 @@ export default function FileCheckerClient() {
   const isDone = state === 'done'
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={{ background: '#09111f' }}>
       <div className="max-w-2xl mx-auto px-4 py-16">
 
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-5">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5" style={{ background: '#00AEEF' }}>
             <ScanSearch className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-3">
-            Vérifiez votre fichier<br />avant de commander
+          <h1 className="text-3xl font-black text-white mb-3">
+            Vérifiez votre fichier<br />
+            <span style={{ color: '#00AEEF' }}>avant de commander</span>
           </h1>
-          <p className="text-slate-500 text-base">Analyse IA — résolution, couleur, fond perdu, lisibilité.</p>
+          <p className="text-slate-400 text-base">Analyse IA — résolution, couleur, fond perdu, lisibilité.</p>
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-8">
@@ -271,9 +273,9 @@ export default function FileCheckerClient() {
             { icon: Maximize2,  label: 'Fond perdu' },
             { icon: Type,       label: 'Lisibilité' },
           ] as const).map(({ icon: Icon, label }) => (
-            <div key={label} className="flex flex-col items-center text-center bg-white rounded-xl p-3 gap-1.5 border border-slate-100">
-              <Icon className="w-5 h-5 text-blue-600" />
-              <p className="text-xs font-semibold text-slate-700">{label}</p>
+            <div key={label} className="flex flex-col items-center text-center rounded-xl p-3 gap-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <Icon className="w-5 h-5" style={{ color: '#00AEEF' }} />
+              <p className="text-xs font-semibold text-slate-300">{label}</p>
             </div>
           ))}
         </div>
@@ -288,13 +290,13 @@ export default function FileCheckerClient() {
           <div className="space-y-4 mb-2">
             {/* Grille produits du catalogue */}
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">
                 1. Quel produit avez-vous commandé ?
               </p>
               {loadingProducts ? (
                 <div className="grid grid-cols-4 gap-2">
                   {[...Array(8)].map((_, i) => (
-                    <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                    <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.08)' }} />
                   ))}
                 </div>
               ) : (
@@ -303,12 +305,10 @@ export default function FileCheckerClient() {
                     <button
                       key={p.id}
                       onClick={() => setSelectedProduct(selectedProduct?.id === p.id ? null : p)}
-                      className={[
-                        'flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-left',
-                        selectedProduct?.id === p.id
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                          : 'border-slate-100 bg-white text-slate-600 hover:border-slate-200',
-                      ].join(' ')}
+                      className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-left"
+                      style={selectedProduct?.id === p.id
+                        ? { borderColor: '#00AEEF', background: 'rgba(0,174,239,0.1)', color: '#00AEEF' }
+                        : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)' }}
                     >
                       <span className="text-lg">{p.icon}</span>
                       <span className="leading-tight text-center line-clamp-2">{p.name}</span>
@@ -323,21 +323,26 @@ export default function FileCheckerClient() {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3"
+                className="flex items-center gap-3 rounded-xl px-4 py-3"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
-                <span className="text-sm font-bold text-slate-600 flex-shrink-0">2. Dimensions commandées</span>
+                <span className="text-sm font-bold text-slate-300 flex-shrink-0">2. Dimensions commandées</span>
                 <input
                   type="number" value={orderedW} onChange={e => setOrderedW(e.target.value)}
-                  placeholder="Largeur" className="w-24 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Largeur"
+                  className="w-24 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
                 />
                 <span className="text-slate-400 font-bold">×</span>
                 <input
                   type="number" value={orderedH} onChange={e => setOrderedH(e.target.value)}
-                  placeholder="Hauteur" className="w-24 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Hauteur"
+                  className="w-24 rounded-lg px-2.5 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
                 />
                 <span className="text-slate-400 text-sm">cm</span>
                 {selectedProduct.diecut && (
-                  <span className="ml-auto text-xs font-bold text-violet-600 bg-violet-50 border border-violet-200 px-2 py-1 rounded-full flex-shrink-0">
+                  <span className="ml-auto text-xs font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ color: '#00AEEF', background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.3)' }}>
                     ✂️ Tracé requis
                   </span>
                 )}
@@ -351,9 +356,9 @@ export default function FileCheckerClient() {
 
             {/* Séparateur */}
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-slate-100" />
+              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
               <span className="text-xs font-bold text-slate-400">3. Déposez votre fichier</span>
-              <div className="flex-1 h-px bg-slate-100" />
+              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
             </div>
           </div>
         )}
@@ -362,12 +367,14 @@ export default function FileCheckerClient() {
           <div onDrop={onDrop}
             onDragOver={e => { e.preventDefault(); setState('dragging') }}
             onDragLeave={() => { if (state === 'dragging') setState('idle') }}
-            className={[
-              'rounded-2xl border-2 border-dashed transition-all',
-              'flex flex-col items-center justify-center gap-4 py-16 px-6 text-center',
-              state === 'dragging' ? 'bg-blue-50 border-blue-400' :
-              isProcessing ? 'bg-sky-50 border-sky-200' : 'bg-white border-slate-200',
-            ].join(' ')}
+            className="rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-4 py-16 px-6 text-center"
+            style={
+              state === 'dragging'
+                ? { background: 'rgba(0,174,239,0.1)', borderColor: '#00AEEF' }
+                : isProcessing
+                  ? { background: 'rgba(0,174,239,0.05)', borderColor: 'rgba(0,174,239,0.3)' }
+                  : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(0,174,239,0.4)' }
+            }
           >
             {isProcessing ? (
               <>
@@ -378,25 +385,26 @@ export default function FileCheckerClient() {
                   autoplay
                 />
                 <div className="text-center">
-                  <p className="font-bold text-slate-800 text-base">
+                  <p className="font-bold text-white text-base">
                     {state === 'uploading' ? 'Envoi du fichier…' : 'Analyse IA en cours…'}
                   </p>
                   <p className="text-sm text-slate-400 mt-1">{fileName} · {fileSizeMB > 0 ? `${fileSizeMB} MB` : ''}</p>
-                  <p className="text-xs text-blue-500 mt-2 animate-pulse">Claude vérifie votre fichier…</p>
+                  <p className="text-xs mt-2 animate-pulse" style={{ color: '#00AEEF' }}>Claude vérifie votre fichier…</p>
                 </div>
               </>
             ) : (
               <>
-                <Upload className="w-12 h-12 text-slate-300" />
+                <Upload className="w-12 h-12" style={{ color: 'rgba(0,174,239,0.5)' }} />
                 <div>
-                  <p className="font-bold text-slate-800 text-lg">Glissez votre fichier ici</p>
+                  <p className="font-bold text-white text-lg">Glissez votre fichier ici</p>
                   <p className="text-slate-400 text-sm mt-1">PDF (≤32 MB), JPG, PNG — toutes résolutions</p>
                 </div>
                 <label htmlFor="fc-input"
-                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl cursor-pointer transition-colors text-sm">
+                  className="inline-flex items-center gap-2 text-white font-bold px-6 py-3 rounded-xl cursor-pointer transition-opacity text-sm hover:opacity-90"
+                  style={{ background: '#00AEEF' }}>
                   <Upload className="w-4 h-4" /> Choisir un fichier
                 </label>
-                <p className="text-xs text-slate-300">Le fichier n'est jamais envoyé à nos serveurs (images)</p>
+                <p className="text-xs text-slate-400">Le fichier n'est jamais envoyé à nos serveurs (images)</p>
               </>
             )}
           </div>
@@ -404,14 +412,14 @@ export default function FileCheckerClient() {
 
         {isDone && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-4 py-3">
-              <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <FileText className="w-5 h-5 flex-shrink-0" style={{ color: '#00AEEF' }} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 truncate">{fileName}</p>
+                <p className="text-sm font-semibold text-white truncate">{fileName}</p>
                 <div className="flex items-center gap-3 mt-0.5">
                   {fileSizeMB > 0 && <span className="text-xs text-slate-400">{fileSizeMB} MB</span>}
                   {dims && (
-                    <span className="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: '#00AEEF', background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.2)' }}>
                       📐 {dims.label}
                     </span>
                   )}
@@ -426,25 +434,35 @@ export default function FileCheckerClient() {
             <FileAnalysisResult result={result} loading={false} error={errorMsg} />
 
             {result && !errorMsg && (
-              <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                result.status === 'ok'      ? 'bg-emerald-50 border-emerald-200' :
-                result.status === 'warning' ? 'bg-amber-50 border-amber-200' :
-                                              'bg-red-50 border-red-200'}`}>
+              <div
+                className="p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                style={
+                  result.status === 'ok'
+                    ? { background: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.2)' }
+                    : result.status === 'warning'
+                      ? { background: 'rgba(245,196,0,0.1)', borderColor: 'rgba(245,196,0,0.2)', border: '1px solid rgba(245,196,0,0.2)' }
+                      : { background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.2)' }
+                }
+              >
                 <div>
                   <p className={`font-bold text-sm ${
-                    result.status === 'ok' ? 'text-emerald-800' :
-                    result.status === 'warning' ? 'text-amber-800' : 'text-red-800'}`}>
+                    result.status === 'ok' ? 'text-emerald-400' :
+                    result.status === 'warning' ? 'text-[#F5C400]' : 'text-red-400'}`}>
                     {result.status === 'ok'      ? '✓ Fichier prêt pour l\'impression' :
                      result.status === 'warning' ? '⚠ Quelques points à vérifier' :
                                                    '✗ Corrections recommandées'}
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">Vérification finale par Comink à la réception</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Vérification finale par Comink à la réception</p>
                 </div>
                 <Link href={result.status === 'error' ? '/devis' : '/catalogue'}
-                  className={`flex-shrink-0 text-sm font-bold px-5 py-2.5 rounded-xl transition-colors ${
-                    result.status === 'ok'      ? 'bg-emerald-600 hover:bg-emerald-700 text-white' :
-                    result.status === 'warning' ? 'bg-amber-500 hover:bg-amber-600 text-white' :
-                                                  'bg-red-600 hover:bg-red-700 text-white'}`}>
+                  className="flex-shrink-0 text-sm font-bold px-5 py-2.5 rounded-xl transition-opacity hover:opacity-90 text-white"
+                  style={
+                    result.status === 'ok'
+                      ? { background: 'rgba(16,185,129,0.8)' }
+                      : result.status === 'warning'
+                        ? { background: 'rgba(245,196,0,0.8)' }
+                        : { background: 'rgba(239,68,68,0.8)' }
+                  }>
                   {result.status === 'error' ? 'Demander de l\'aide →' : 'Passer commande →'}
                 </Link>
               </div>
@@ -454,20 +472,21 @@ export default function FileCheckerClient() {
               {result && !errorMsg && (
                 <button
                   onClick={() => generateAnalysisReport({ fileName, fileSizeMB, dimensions: dims?.label }, result)}
-                  className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-5 py-2.5 rounded-xl transition-colors"
+                  className="flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl transition-opacity hover:opacity-90"
+                  style={{ color: '#00AEEF', background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.25)' }}
                 >
                   <Download className="w-4 h-4" /> Télécharger le rapport PDF
                 </button>
               )}
               <button onClick={reset}
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 transition-colors">
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors">
                 <RotateCcw className="w-3.5 h-3.5" /> Tester un autre fichier
               </button>
             </div>
           </div>
         )}
 
-        <p className="text-center text-xs text-slate-300 mt-10">
+        <p className="text-center text-xs text-slate-400 mt-10">
           Service gratuit · Sans inscription · Images analysées localement
         </p>
       </div>

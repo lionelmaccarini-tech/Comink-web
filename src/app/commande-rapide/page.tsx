@@ -32,7 +32,7 @@ export default async function CommandeRapidePage() {
 
   const { data } = await supabase
     .from('products')
-    .select('id, name, category, product_type, price_per_m2, standard_sizes, finitions, delai_options, sides_finitions, available, restricted_to_price_lists')
+    .select('id, name, category, product_type, price_per_m2, standard_sizes, finitions, delai_options, sides_finitions, available, restricted_to_price_lists, min_width_cm, max_width_cm, min_height_cm, max_height_cm')
     .eq('available', true)
     .order('name')
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { generateQuoteNumber } from '@/lib/utils'
 
 export const runtime = 'nodejs'
@@ -44,24 +44,29 @@ export async function POST(req: NextRequest) {
       .join('\n')
 
     // ── Créer le lead CRM ──────────────────────────────────────────────────
-    const supabase = await createServiceClient()
+    const supabase = createAdminClient()
     const quote_number = generateQuoteNumber()
 
     const { data, error } = await supabase
       .from('quotes')
       .insert({
         quote_number,
-        client_name:    visitorName  || 'Visiteur anonyme',
-        client_email:   visitorEmail || '',
-        client_phone:   visitorPhone || null,
-        pipeline_stage: 'lead',
-        source:         'chat_angelo',
+        client_name:      visitorName  || 'Visiteur anonyme',
+        client_email:     visitorEmail || '',
+        client_phone:     visitorPhone || null,
+        pipeline_stage:   'lead',
+        status:           'draft',
+        source:           'chat_angelo',
         notes,
-        items:          [],
-        subtotal:       0,
-        tax:            0,
-        total:          0,
-        probability:    20,
+        items:            [],
+        subtotal:         0,
+        tax:              0,
+        total:            0,
+        probability:      20,
+        delivery_method:  'pickup',
+        delivery_cost:    0,
+        delivery_country: 'BE',
+        blind_shipping:   false,
       })
       .select('id, quote_number')
       .single()
