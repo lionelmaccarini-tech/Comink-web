@@ -31,57 +31,57 @@ export async function POST(req: NextRequest) {
   const supabase = await createServiceClient()
 
   if (body.action === 'create') {
-    const { full_name, email, role } = body
-    if (!full_name || !email || !role) {
-      return NextResponse.json({ error: 'Nom, email et rôle requis' }, { status: 400 })
-    }
+    try {
+      const { full_name, email, role } = body
+      if (!full_name || !email || !role) {
+        return NextResponse.json({ error: 'Nom, email et rôle requis' }, { status: 400 })
+      }
 
-    // Check if user already exists
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, role')
-      .ilike('email', email)
-      .maybeSingle()
-
-    if (existing) {
-      // Just update role
-      const { data, error } = await supabase
+      // Check if user already exists
+      const { data: existing } = await supabase
         .from('profiles')
-        .update({ role, full_name: full_name || existing.full_name })
-        .eq('id', existing.id)
-        .select()
-        .single()
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      return NextResponse.json({ ...data, already_exists: true })
-    }
+        .select('id, email, full_name, role')
+        .ilike('email', email)
+        .maybeSingle()
 
-    // Create new user via Supabase Auth invite
-    const admin = createAdminClient()
-    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-      type: 'invite',
-      email,
-      options: {
-        data: { full_name },
-        redirectTo: `${SITE_URL}/compte`,
-      },
-    })
+      if (existing) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .update({ role, full_name: full_name || existing.full_name })
+          .eq('id', existing.id)
+          .select()
+          .single()
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ ...data, already_exists: true })
+      }
 
-    if (linkError || !linkData?.user) {
-      return NextResponse.json({ error: linkError?.message || 'Impossible de créer le compte' }, { status: 500 })
-    }
+      // Create new user via Supabase Auth invite
+      const admin = createAdminClient()
+      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: {
+          data: { full_name },
+          redirectTo: `${SITE_URL}/compte`,
+        },
+      })
 
-    // Set role on the auto-created profile
-    await supabase.from('profiles').update({ role, full_name }).eq('id', linkData.user.id)
+      if (linkError || !linkData?.user) {
+        return NextResponse.json({ error: linkError?.message || 'Impossible de créer le compte' }, { status: 500 })
+      }
 
-    // Send branded invite email
-    const inviteUrl = linkData.properties.action_link
-    const roleLabel = ROLE_LABELS[role] || role
-    await sendEmail({
-      from: FROM,
-      to: email,
-      subject: `Comink — Votre accès ${roleLabel} est prêt`,
-      html: `
-<!DOCTYPE html>
+      // Set role on the auto-created profile
+      await supabase.from('profiles').update({ role, full_name }).eq('id', linkData.user.id)
+
+      // Send invite email (non-blocking — don't fail if email fails)
+      const inviteUrl = linkData.properties.action_link
+      const roleLabel = ROLE_LABELS[role] || role
+      try {
+        await sendEmail({
+          from: FROM,
+          to: email,
+          subject: `Comink — Votre accès ${roleLabel} est prêt`,
+          html: `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif">
@@ -109,9 +109,16 @@ export async function POST(req: NextRequest) {
 </div>
 </body>
 </html>`,
-    })
+        })
+      } catch (emailErr) {
+        console.error('[collaborateurs] email send failed (non-blocking):', emailErr)
+      }
 
-    return NextResponse.json({ id: linkData.user.id, email, full_name, role, already_exists: false }, { status: 201 })
+      return NextResponse.json({ id: linkData.user.id, email, full_name, role, already_exists: false }, { status: 201 })
+    } catch (err: any) {
+      console.error('[collaborateurs POST create]', err)
+      return NextResponse.json({ error: err.message || 'Erreur serveur' }, { status: 500 })
+    }
   }
 
   // Legacy: assign role to existing user by email
