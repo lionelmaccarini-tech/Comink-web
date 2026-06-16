@@ -1,30 +1,39 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserPlus, Shield, User, Wrench, Trash2, RefreshCw, Search, TrendingUp } from 'lucide-react'
+import { UserPlus, Shield, User, Wrench, RefreshCw, Search, TrendingUp, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const ROLES = [
-  { value: 'admin',         label: 'Admin',         color: 'bg-purple-100 text-purple-700',  icon: Shield },
-  { value: 'collaborateur', label: 'Collaborateur',  color: 'bg-blue-100 text-blue-700',     icon: User },
+  { value: 'admin',         label: 'Admin',         color: 'bg-purple-100 text-purple-700',    icon: Shield },
+  { value: 'collaborateur', label: 'Collaborateur',  color: 'bg-blue-100 text-blue-700',       icon: User },
   { value: 'vendeur',       label: 'Vendeur',        color: 'bg-emerald-100 text-emerald-700', icon: TrendingUp },
-  { value: 'producteur',    label: 'Producteur',     color: 'bg-amber-100 text-amber-700',   icon: Wrench },
-  { value: 'user',          label: 'Utilisateur',    color: 'bg-slate-100 text-slate-600',   icon: User },
+  { value: 'producteur',    label: 'Producteur',     color: 'bg-amber-100 text-amber-700',     icon: Wrench },
+  { value: 'user',          label: 'Utilisateur',    color: 'bg-slate-100 text-slate-600',     icon: User },
 ]
 
 function RoleBadge({ role }: { role: string }) {
-  const r = ROLES.find(x => x.value === role) ?? ROLES[3]
+  const r = ROLES.find(x => x.value === role) ?? ROLES[4]
   return <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', r.color)}>{r.label}</span>
 }
 
 export default function CollaborateursTab() {
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+
+  // Create account form
+  const [createName, setCreateName] = useState('')
+  const [createEmail, setCreateEmail] = useState('')
+  const [createRole, setCreateRole] = useState('collaborateur')
+  const [creating, setCreating] = useState(false)
+  const [createMsg, setCreateMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // Assign role form (existing user)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('collaborateur')
   const [inviting, setInviting] = useState(false)
   const [inviteMsg, setInviteMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [search, setSearch] = useState('')
 
   async function loadUsers() {
     setLoading(true)
@@ -38,6 +47,32 @@ export default function CollaborateursTab() {
   }
 
   useEffect(() => { loadUsers() }, [])
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!createName.trim() || !createEmail.trim()) return
+    setCreating(true); setCreateMsg(null)
+    try {
+      const res = await fetch('/api/admin/collaborateurs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', full_name: createName.trim(), email: createEmail.trim(), role: createRole }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (data.already_exists) {
+        setCreateMsg({ type: 'ok', text: `Compte existant — rôle mis à jour en "${createRole}" pour ${createEmail}` })
+      } else {
+        setCreateMsg({ type: 'ok', text: `Compte créé et invitation envoyée à ${createEmail}` })
+      }
+      setCreateName(''); setCreateEmail('')
+      loadUsers()
+    } catch (e: any) {
+      setCreateMsg({ type: 'err', text: e.message })
+    } finally {
+      setCreating(false)
+    }
+  }
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
@@ -78,10 +113,66 @@ export default function CollaborateursTab() {
 
   return (
     <div className="space-y-6">
-      {/* Invite card */}
+
+      {/* Create account card */}
+      <div className="bg-white border border-blue-200 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg,#eff6ff 0%,#fff 60%)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <UserPlus className="w-4 h-4 text-blue-600" />
+          <h3 className="text-sm font-bold text-slate-800">Créer un compte équipe</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-4">Crée un compte directement et envoie une invitation par email à la personne.</p>
+        <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2 items-end">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Nom complet</label>
+            <input
+              type="text" required
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Prénom Nom"
+              value={createName}
+              onChange={e => setCreateName(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+            <input
+              type="email" required
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="email@exemple.com"
+              value={createEmail}
+              onChange={e => setCreateEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Rôle</label>
+            <select
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              value={createRole}
+              onChange={e => setCreateRole(e.target.value)}
+            >
+              {ROLES.filter(r => r.value !== 'user').map(r => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit" disabled={creating}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            <Mail className="w-4 h-4" />
+            {creating ? 'Envoi…' : 'Créer & inviter'}
+          </button>
+        </form>
+        {createMsg && (
+          <p className={cn('mt-3 text-sm font-medium', createMsg.type === 'ok' ? 'text-green-600' : 'text-red-600')}>
+            {createMsg.type === 'ok' ? '✓' : '✗'} {createMsg.text}
+          </p>
+        )}
+      </div>
+
+      {/* Assign role card (existing user) */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5">
-        <h3 className="text-sm font-bold text-slate-800 mb-1">Attribuer un rôle</h3>
-        <p className="text-xs text-slate-500 mb-4">La personne doit d'abord créer un compte sur le site. Entrez son email pour lui attribuer un rôle.</p>
+        <h3 className="text-sm font-bold text-slate-800 mb-1">Attribuer un rôle à un compte existant</h3>
+        <p className="text-xs text-slate-500 mb-4">Si la personne a déjà un compte, entrez son email pour lui attribuer un rôle.</p>
         <form onSubmit={handleInvite} className="flex gap-2 flex-wrap">
           <input
             type="email" required
@@ -101,7 +192,7 @@ export default function CollaborateursTab() {
           </select>
           <button
             type="submit" disabled={inviting}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
           >
             <UserPlus className="w-4 h-4" />
             {inviting ? 'En cours…' : 'Attribuer'}

@@ -51,11 +51,25 @@ export default function Header() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) return
-      const { data: profile } = await supabase.from('profiles').select('email, full_name, role').eq('id', session.user.id).single()
+
+    const loadProfile = async (userId: string) => {
+      const { data: profile } = await supabase.from('profiles').select('email, full_name, role').eq('id', userId).single()
       if (profile) setUserProfile(profile)
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) loadProfile(session.user.id)
     })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadProfile(session.user.id)
+      } else {
+        setUserProfile(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const handleLogout = async () => {
