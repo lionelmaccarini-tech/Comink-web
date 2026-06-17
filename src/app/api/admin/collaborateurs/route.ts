@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient, createAdminClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/resend/client'
 
-const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@comink.be'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://comink.be'
+const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@comink.eu'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://comink.eu'
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrateur',
