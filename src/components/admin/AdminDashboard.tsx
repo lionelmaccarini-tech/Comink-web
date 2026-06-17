@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Building2, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen, FileText, Brain, BarChart2 } from 'lucide-react'
+import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen, FileText, Brain, BarChart2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ProductModal from './ProductModal'
 import CollaborateursTab from './CollaborateursTab'
-import ClientsTab from './ClientsTab'
 import PriceListsTab from './PriceListsTab'
 import CategoriesTab, { type Category } from './CategoriesTab'
 import ProductionTab from './ProductionTab'
@@ -206,7 +205,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         <div className="flex flex-wrap gap-1 mb-6 bg-white border border-slate-200 rounded-xl p-1 w-fit shadow-sm">
           {([
             { id: 'produits' as const, icon: Package, label: 'Produits', badge: stats.total as number | undefined },
-            { id: 'clients' as const, icon: Building2, label: 'Clients', badge: undefined },
             { id: 'listes-prix' as const, icon: Tag, label: 'Listes de prix', badge: undefined },
             { id: 'collaborateurs' as const, icon: Users, label: 'Collaborateurs', badge: undefined },
             { id: 'categories' as const, icon: FolderOpen, label: 'Catégories', badge: categories.length > 0 ? categories.length : undefined },
@@ -391,7 +389,6 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
         )}
 
         {/* ── CLIENTS ── */}
-        {tab === 'clients' && <ClientsTab />}
 
         {/* ── LISTES DE PRIX ── */}
         {tab === 'listes-prix' && <PriceListsTab />}
