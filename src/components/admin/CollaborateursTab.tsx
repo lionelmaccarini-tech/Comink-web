@@ -28,6 +28,7 @@ export default function CollaborateursTab() {
   const [createRole, setCreateRole] = useState('collaborateur')
   const [creating, setCreating] = useState(false)
   const [createMsg, setCreateMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
 
   // Assign role form (existing user)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -51,7 +52,7 @@ export default function CollaborateursTab() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!createName.trim() || !createEmail.trim()) return
-    setCreating(true); setCreateMsg(null)
+    setCreating(true); setCreateMsg(null); setInviteUrl(null)
     try {
       const res = await fetch('/api/admin/collaborateurs', {
         method: 'POST',
@@ -63,7 +64,8 @@ export default function CollaborateursTab() {
       if (data.already_exists) {
         setCreateMsg({ type: 'ok', text: `Compte existant — rôle mis à jour en "${createRole}" pour ${createEmail}` })
       } else {
-        setCreateMsg({ type: 'ok', text: `Compte créé et invitation envoyée à ${createEmail}` })
+        setCreateMsg({ type: 'ok', text: data.email_sent ? `Invitation envoyée à ${data.email}` : `Compte créé — email non envoyé, copie le lien ci-dessous` })
+        if (data.invite_url) setInviteUrl(data.invite_url)
       }
       setCreateName(''); setCreateEmail('')
       loadUsers()
@@ -166,6 +168,20 @@ export default function CollaborateursTab() {
           <p className={cn('mt-3 text-sm font-medium', createMsg.type === 'ok' ? 'text-green-600' : 'text-red-600')}>
             {createMsg.type === 'ok' ? '✓' : '✗'} {createMsg.text}
           </p>
+        )}
+        {inviteUrl && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs font-semibold text-amber-800 mb-1.5">🔗 Lien d'invitation (valable 24h) — envoie-le manuellement :</p>
+            <div className="flex gap-2 items-center">
+              <input readOnly value={inviteUrl} className="flex-1 text-xs bg-white border border-amber-200 rounded px-2 py-1.5 text-slate-600 font-mono truncate" />
+              <button
+                onClick={() => { navigator.clipboard.writeText(inviteUrl); }}
+                className="text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded transition-colors whitespace-nowrap"
+              >
+                Copier
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

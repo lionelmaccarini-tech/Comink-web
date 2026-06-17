@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
       // Send invite email (non-blocking — don't fail if email fails)
       const inviteUrl = linkData.properties.action_link
       const roleLabel = ROLE_LABELS[role] || role
+      let emailSent = false
       try {
         await sendEmail({
           from: FROM,
@@ -110,11 +111,12 @@ export async function POST(req: NextRequest) {
 </body>
 </html>`,
         })
+        emailSent = true
       } catch (emailErr) {
         console.error('[collaborateurs] email send failed (non-blocking):', emailErr)
       }
 
-      return NextResponse.json({ id: linkData.user.id, email, full_name, role, already_exists: false }, { status: 201 })
+      return NextResponse.json({ id: linkData.user.id, email, full_name, role, already_exists: false, invite_url: inviteUrl, email_sent: emailSent }, { status: 201 })
     } catch (err: any) {
       console.error('[collaborateurs POST create]', err)
       return NextResponse.json({ error: err.message || 'Erreur serveur' }, { status: 500 })
