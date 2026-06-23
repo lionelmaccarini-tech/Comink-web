@@ -11,7 +11,7 @@ const features = [
   { icon: MapPin,          title: 'Production locale',   desc: 'Tout est produit à Liège. Contrôle qualité direct, zéro intermédiaire.',            color: C.magenta },
   { icon: Lightbulb,       title: 'Conseils sur-mesure', desc: 'On vous guide vers le bon produit pour votre budget et votre usage.',               color: C.yellow  },
   { icon: HeadphonesIcon,  title: 'Support humain',      desc: "Notre IA répond instantanément 24h/24. Pendant les heures d'ouverture, un humain prend le relais en un clic — avec tout le détail de votre conversation.",                color: C.cyan    },
-  { icon: ShieldCheck,     title: 'Qualité garantie',    desc: "Pas satisfait ? On refait ou on rembourse. Sans discussion.",                       color: C.magenta },
+  { icon: ShieldCheck,     title: 'Qualité garantie',    desc: "Chaque production est unique et réalisée sur mesure. On s'engage sur la qualité d'exécution et on vous accompagne si quelque chose ne va pas.",                       color: C.magenta },
   { icon: Zap,             title: 'Express disponible',  desc: 'Commandez avant 14h, livraison ou enlèvement possible dès le lendemain.',            color: C.yellow  },
 ]
 

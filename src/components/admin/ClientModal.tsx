@@ -45,13 +45,29 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
   const [allowPickup,   setAllowPickup]   = useState(true)
   const [allowParcel,   setAllowParcel]   = useState(true)
   const [allowExpress,  setAllowExpress]  = useState(true)
+  const [freeShipping,  setFreeShipping]  = useState(false)
 
   // Members state
   const [members, setMembers] = useState<any[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState('member')
   const [inviting, setInviting] = useState(false)
   const [inviteMsg, setInviteMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+
+  async function loadMembers() {
+    if (!client?.id) return
+    setMembersLoading(true)
+    try {
+      const res = await fetch(`/api/admin/clients/members?client_account_id=${client.id}`)
+      const data = await res.json()
+      if (Array.isArray(data)) setMembers(data)
+    } finally {
+      setMembersLoading(false)
+    }
+  }
 
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
 
@@ -90,6 +106,14 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
         setAllowParcel(dm.includes('parcel'))
         setAllowExpress(dm.includes('express'))
       }
+      setFreeShipping(client.free_shipping ?? false)
+      // Charger les membres depuis l'API à l'ouverture
+      if (client.id) {
+        fetch(`/api/admin/clients/members?client_account_id=${client.id}`)
+          .then(r => r.json())
+          .then(data => { if (Array.isArray(data)) setMembers(data) })
+          .catch(() => {})
+      }
     }
   }, [client])
 
@@ -118,6 +142,10 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
         price_list_id: form.price_list_id || null,
         discount_percent: Number(form.discount_percent) || 0,
         billing_end_of_month: billingEndOfMonth,
+        free_shipping: freeShipping,
+        payment_deadline_days: deadlineDays,
+        payment_methods_override: paymentOverride,
+        delivery_methods_override: deliveryOverride,
       }
       const method = client?.id ? 'PUT' : 'POST'
       const res = await fetch('/api/admin/clients', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -134,21 +162,27 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
     if (!client?.id) { setError('Sauvegardez d\'abord le client.'); return }
-    setInviting(true); setInviteMsg(null)
+    setInviting(true); setInviteMsg(null); setInviteUrl(null)
     try {
       const res = await fetch('/api/admin/clients/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_account_id: client.id, email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({
+          action: 'invite',
+          client_account_id: client.id,
+          client_name: form.name,
+          email: inviteEmail,
+          full_name: inviteName || undefined,
+          role: inviteRole,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setMembers(m => {
-        const exists = m.find(x => x.id === data.id)
-        return exists ? m.map(x => x.id === data.id ? data : x) : [...m, data]
-      })
-      setInviteMsg({ type: 'ok', text: `${inviteEmail} ajouté comme ${inviteRole}` })
-      setInviteEmail('')
+      setInviteMsg({ type: 'ok', text: data.email_sent ? `Invitation envoyée à ${inviteEmail}` : `Lien généré — copie ci-dessous` })
+      if (data.invite_url) setInviteUrl(data.invite_url)
+      setInviteEmail(''); setInviteName('')
+      // Recharger la liste des membres depuis l'API
+      await loadMembers()
     } catch (e: any) {
       setInviteMsg({ type: 'err', text: e.message })
     } finally {
@@ -349,6 +383,27 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2">null (tout coché) = tous les modes globaux s'appliquent</p>
               </div>
+
+              {/* Franco de port */}
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Frais de livraison</p>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={freeShipping}
+                    onChange={e => setFreeShipping(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                      Franco de port
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      La livraison est toujours offerte pour ce compte, quel que soit le montant de la commande.
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
           )}
 
@@ -362,33 +417,48 @@ export default function ClientModal({ client, priceLists, onClose, onSaved }: Pr
               )}
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                <p className="text-xs font-semibold text-slate-600 mb-3">Ajouter un utilisateur</p>
-                <form onSubmit={handleInvite} className="flex gap-2 flex-wrap">
-                  <input
-                    type="email" required disabled={isNew}
-                    className="flex-1 min-w-[180px] border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    placeholder="email@exemple.com"
-                    value={inviteEmail}
-                    onChange={e => setInviteEmail(e.target.value)}
-                  />
-                  <select disabled={isNew}
-                    className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white disabled:opacity-50"
-                    value={inviteRole} onChange={e => setInviteRole(e.target.value)}
-                  >
-                    <option value="owner">Responsable (owner)</option>
-                    <option value="member">Membre</option>
-                  </select>
-                  <button type="submit" disabled={inviting || isNew}
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-3 py-2 rounded-lg disabled:opacity-50">
-                    <UserPlus className="w-4 h-4" /> {inviting ? '…' : 'Ajouter'}
-                  </button>
+                <p className="text-xs font-semibold text-slate-600 mb-3">Inviter un utilisateur</p>
+                <form onSubmit={handleInvite} className="space-y-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <input
+                      type="text" disabled={isNew}
+                      className="w-36 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      placeholder="Prénom Nom"
+                      value={inviteName}
+                      onChange={e => setInviteName(e.target.value)}
+                    />
+                    <input
+                      type="email" required disabled={isNew}
+                      className="flex-1 min-w-[160px] border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                      placeholder="email@exemple.com"
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                    />
+                    <select disabled={isNew}
+                      className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white disabled:opacity-50"
+                      value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+                    >
+                      <option value="owner">Responsable (owner)</option>
+                      <option value="member">Membre</option>
+                    </select>
+                    <button type="submit" disabled={inviting || isNew}
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-3 py-2 rounded-lg disabled:opacity-50 whitespace-nowrap">
+                      <UserPlus className="w-4 h-4" /> {inviting ? '…' : 'Inviter'}
+                    </button>
+                  </div>
                 </form>
                 {inviteMsg && (
                   <p className={cn('mt-2 text-xs font-medium', inviteMsg.type === 'ok' ? 'text-green-600' : 'text-red-600')}>
                     {inviteMsg.type === 'ok' ? '✓' : '✗'} {inviteMsg.text}
                   </p>
                 )}
-                <p className="text-[11px] text-slate-400 mt-2">L'utilisateur doit avoir créé un compte sur le site. Les commandes passées par tous les membres seront regroupées sous ce compte pour la facturation.</p>
+                {inviteUrl && (
+                  <div className="mt-2 flex gap-2 items-center">
+                    <input readOnly value={inviteUrl} className="flex-1 text-[10px] border border-slate-200 rounded px-2 py-1 font-mono truncate" />
+                    <button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="text-[10px] bg-slate-700 text-white px-2 py-1 rounded whitespace-nowrap">Copier</button>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-400 mt-2">Un email d'invitation sera envoyé. Les commandes de tous les membres sont regroupées sous ce compte pour la facturation.</p>
               </div>
 
               {members.length === 0 ? (

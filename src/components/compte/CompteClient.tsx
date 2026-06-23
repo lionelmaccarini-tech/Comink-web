@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Package, Clock, CheckCircle, Truck, User, LogOut, FileText, ShoppingCart, Trash2, AlertTriangle, Pencil, Plus, Star, ChevronDown, ChevronUp, Printer, X, ArrowLeft, Users, Crown, UserPlus, Mail, Shield, UserMinus } from 'lucide-react'
+import { Package, Clock, CheckCircle, Truck, User, LogOut, FileText, ShoppingCart, Trash2, AlertTriangle, Pencil, Plus, Star, ChevronDown, ChevronUp, Printer, X, ArrowLeft, Users, Crown, UserPlus, Mail, Shield, UserMinus, Building2, Save, CheckCheck } from 'lucide-react'
 import { formatDate, formatPrice, isBelgianVAT, isIntraCommunityVAT, isValidVAT } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useCart } from '@/hooks/useCart'
@@ -414,7 +414,7 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
   const router = useRouter()
   const searchParams = useSearchParams()
   const { clearCart, addItem } = useCart()
-  const [tab, setTab] = useState<'commandes' | 'devis' | 'factures' | 'profil' | 'equipe'>(
+  const [tab, setTab] = useState<'commandes' | 'devis' | 'factures' | 'profil' | 'equipe' | 'entreprise'>(
     (searchParams.get('tab') as any) || 'commandes'
   )
 
@@ -450,6 +450,104 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
     if (tab === 'equipe') loadTeam()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
+
+  // ── Entreprise / Facturation ─────────────────────────────────────────────
+  const [billingAccounts, setBillingAccounts] = useState<any[]>([])
+  const [billingLoading, setBillingLoading]   = useState(false)
+  const [editingBillingId, setEditingBillingId] = useState<string | null>(null)
+  const [billingForm, setBillingForm]         = useState<Record<string, string>>({})
+  const [savingBilling, setSavingBilling]     = useState(false)
+  const [billingMsg, setBillingMsg]           = useState<{ ok: boolean; text: string } | null>(null)
+  const [showNewAccountForm, setShowNewAccountForm] = useState(false)
+  const [newAccountForm, setNewAccountForm]   = useState<Record<string, string>>({ name: '', vat_number: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', postal_code: '', country: 'BE' })
+  const [savingNewAccount, setSavingNewAccount] = useState(false)
+
+  async function loadBilling() {
+    setBillingLoading(true)
+    try {
+      const res = await fetch('/api/account/billing')
+      if (res.ok) setBillingAccounts(await res.json())
+    } finally {
+      setBillingLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (tab === 'entreprise') loadBilling()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  function openBillingEdit(account: any) {
+    setEditingBillingId(account.id)
+    setBillingMsg(null)
+    setBillingForm({
+      name:          account.name          ?? '',
+      vat_number:    account.vat_number    ?? '',
+      email:         account.email         ?? '',
+      phone:         account.phone         ?? '',
+      address_line1: account.address_line1 ?? '',
+      address_line2: account.address_line2 ?? '',
+      city:          account.city          ?? '',
+      postal_code:   account.postal_code   ?? '',
+      country:       account.country       ?? 'BE',
+    })
+  }
+
+  async function handleCreateAccount(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingNewAccount(true)
+    setBillingMsg(null)
+    try {
+      const res = await fetch('/api/account/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAccountForm),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setBillingMsg({ ok: true, text: `Entreprise "${data.name}" créée avec succès.` })
+      setShowNewAccountForm(false)
+      setNewAccountForm({ name: '', vat_number: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', postal_code: '', country: 'BE' })
+      loadBilling()
+    } catch (err: any) {
+      setBillingMsg({ ok: false, text: err.message })
+    } finally {
+      setSavingNewAccount(false)
+    }
+  }
+
+  async function handleSetActiveAccount(accountId: string) {
+    const res = await fetch('/api/account/billing/active', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_account_id: accountId }),
+    })
+    if (res.ok) {
+      setBillingAccounts(prev => prev.map(a => ({ ...a, is_active: a.id === accountId })))
+      setBillingMsg({ ok: true, text: 'Compte de facturation mis à jour. Il sera utilisé pour vos prochaines commandes.' })
+    }
+  }
+
+  async function handleSaveBilling(accountId: string) {
+    setSavingBilling(true)
+    setBillingMsg(null)
+    try {
+      const res = await fetch(`/api/account/billing/${accountId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(billingForm),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setBillingMsg({ ok: true, text: 'Coordonnées enregistrées.' })
+      setEditingBillingId(null)
+      loadBilling()
+    } catch (err: any) {
+      setBillingMsg({ ok: false, text: err.message })
+    } finally {
+      setSavingBilling(false)
+    }
+  }
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
@@ -716,7 +814,7 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
 
         {/* Tabs — dans le bandeau sombre */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          {(['commandes', 'devis', 'factures', 'equipe', 'profil'] as const).map(t => (
+          {(['commandes', 'devis', 'factures', 'equipe', 'entreprise', 'profil'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${
                 tab === t
@@ -731,6 +829,8 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                 ? <><ShoppingCart className="w-3.5 h-3.5" />Mes Factures</>
                 : t === 'equipe'
                 ? <><Users className="w-3.5 h-3.5" />Mon Équipe</>
+                : t === 'entreprise'
+                ? <><Building2 className="w-3.5 h-3.5" />Mes Entreprises</>
                 : <><User className="w-3.5 h-3.5" />Mon Profil</>}
             </button>
           ))}
@@ -899,36 +999,6 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                 {profile?.company && <div><dt className="text-xs text-slate-400 font-bold uppercase tracking-wide">Société</dt><dd className="text-slate-300">{profile.company}</dd></div>}
                 {profile?.phone && <div><dt className="text-xs text-slate-400 font-bold uppercase tracking-wide">Téléphone</dt><dd className="text-slate-300">{profile.phone}</dd></div>}
               </dl>
-              <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-1">Numéro de TVA</label>
-                <p className="text-[11px] text-slate-400 mb-2">B2B — belge (BE0…) ou européen (FR…, NL…). La TVA 0% s'applique uniquement hors Belgique.</p>
-                <div className="flex gap-2">
-                  <input type="text" value={vatNumber} onChange={e => setVatNumber(e.target.value)}
-                    placeholder="BE0123456789 ou FR12345678901"
-                    className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
-                  <button onClick={handleSaveVat} disabled={savingVat}
-                    className="px-4 py-2 text-sm font-bold disabled:opacity-50 text-white rounded-lg transition-colors hover:opacity-90"
-                    style={{ background: '#00AEEF' }}>
-                    {vatSaved ? '✓ Enregistré' : savingVat ? '…' : 'Sauver'}
-                  </button>
-                </div>
-                {isBelgianVAT(vatNumber) && (
-                  <p className="text-[11px] mt-1.5 font-semibold flex items-center gap-1" style={{ color: '#00AEEF' }}>
-                    <CheckCircle className="w-3 h-3" /> Numéro TVA belge valide — TVA 21% applicable
-                  </p>
-                )}
-                {isIntraCommunityVAT(vatNumber) && (
-                  <p className="text-[11px] text-emerald-400 mt-1.5 font-semibold flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> TVA intracommunautaire — 0% appliqué sur vos commandes
-                  </p>
-                )}
-                {vatNumber && !isValidVAT(vatNumber) && (
-                  <p className="text-[11px] text-[#F5C400] mt-1.5 font-semibold flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Format non reconnu (ex : BE0123456789 ou FR12345678901)
-                  </p>
-                )}
-              </div>
             </div>
 
             {/* Données personnelles optionnelles */}
@@ -977,46 +1047,6 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
                   style={{ background: '#00AEEF' }}
                 >
                   {demoSaved ? '✓ Enregistré' : savingDemo ? '…' : 'Sauvegarder'}
-                </button>
-              </div>
-            </div>
-
-            {/* Adresse de facturation */}
-            <div className="rounded-xl p-6" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <h3 className="font-bold text-white mb-4 text-sm">Adresse de facturation</h3>
-              {(() => {
-                const F = ({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) => (
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-0.5">{label}</label>
-                    <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-                      className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
-                  </div>
-                )
-                return (
-                  <div className="space-y-3">
-                    <F label="Rue et numéro" value={billingLine1} onChange={setBillingLine1} placeholder="Rue de Bruxelles 174h" />
-                    <F label="Complément" value={billingLine2} onChange={setBillingLine2} placeholder="Bte 3…" />
-                    <div className="grid grid-cols-3 gap-3">
-                      <F label="Code postal" value={billingPostal} onChange={setBillingPostal} placeholder="4340" />
-                      <div className="col-span-2"><F label="Ville" value={billingCity} onChange={setBillingCity} placeholder="Awans" /></div>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-400 mb-0.5">Pays</label>
-                      <select value={billingCountry} onChange={e => setBillingCountry(e.target.value)}
-                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}>
-                        {COUNTRIES.map(([c,l]) => <option key={c} value={c} style={{ background: '#0d1f38', color: 'white' }}>{l}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                )
-              })()}
-              <div className="mt-4 flex justify-end">
-                <button onClick={handleSaveAddresses} disabled={savingAddr}
-                  className="flex items-center gap-2 px-5 py-2 text-sm font-bold disabled:opacity-50 text-white rounded-lg transition-colors hover:opacity-90"
-                  style={{ background: '#00AEEF' }}>
-                  {addrSaved ? '✓ Enregistrée' : savingAddr ? '…' : 'Sauvegarder'}
                 </button>
               </div>
             </div>
@@ -1340,6 +1370,332 @@ export default function CompteClient({ user, profile, orders, quotes: initialQuo
               <p><span className="font-bold text-slate-300">Utilisateur</span> — Passer des commandes et consulter l'historique du compte.</p>
             </div>
 
+          </div>
+        )}
+
+        {/* ── ENTREPRISE ── */}
+        {tab === 'entreprise' && (
+          <div className="space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white mb-1">Coordonnées de facturation</h2>
+                <p className="text-sm text-slate-400">Ces informations apparaissent sur vos factures. Seuls les administrateurs peuvent les modifier.</p>
+              </div>
+              <button
+                onClick={() => { setShowNewAccountForm(true); setBillingMsg(null) }}
+                className="flex-shrink-0 flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-lg text-white transition-opacity hover:opacity-80"
+                style={{ background: '#00AEEF' }}
+              >
+                <Plus className="w-4 h-4" /> Nouvelle entreprise
+              </button>
+            </div>
+
+            {/* Formulaire création d'entreprise */}
+            {showNewAccountForm && (
+              <form onSubmit={handleCreateAccount} className="rounded-xl overflow-hidden" style={{ background: 'rgba(0,174,239,0.04)', border: '1px solid rgba(0,174,239,0.2)' }}>
+                <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(0,174,239,0.15)' }}>
+                  <p className="text-sm font-bold text-white flex items-center gap-2">
+                    <Plus className="w-4 h-4" style={{ color: '#00AEEF' }} /> Nouvelle entreprise
+                  </p>
+                  <button type="button" onClick={() => setShowNewAccountForm(false)} className="text-slate-400 hover:text-white transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="px-5 py-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Raison sociale *</label>
+                      <input type="text" required value={newAccountForm.name} onChange={e => setNewAccountForm(f => ({ ...f, name: e.target.value }))} placeholder="Ma Société SRL"
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Numéro de TVA</label>
+                      <input type="text" value={newAccountForm.vat_number} onChange={e => setNewAccountForm(f => ({ ...f, vat_number: e.target.value }))} placeholder="BE0123456789"
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Email de facturation</label>
+                      <input type="email" value={newAccountForm.email} onChange={e => setNewAccountForm(f => ({ ...f, email: e.target.value }))} placeholder="factures@masociete.com"
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Rue et numéro</label>
+                      <input type="text" value={newAccountForm.address_line1} onChange={e => setNewAccountForm(f => ({ ...f, address_line1: e.target.value }))} placeholder="Rue de l'Exemple 1"
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Code postal</label>
+                      <input type="text" value={newAccountForm.postal_code} onChange={e => setNewAccountForm(f => ({ ...f, postal_code: e.target.value }))} placeholder="4000"
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Ville</label>
+                      <input type="text" value={newAccountForm.city} onChange={e => setNewAccountForm(f => ({ ...f, city: e.target.value }))} placeholder="Liège"
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Pays</label>
+                      <select value={newAccountForm.country} onChange={e => setNewAccountForm(f => ({ ...f, country: e.target.value }))}
+                        className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                        style={{ background: '#0d1f38', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}>
+                        <option value="BE">Belgique</option>
+                        <option value="FR">France</option>
+                        <option value="LU">Luxembourg</option>
+                        <option value="NL">Pays-Bas</option>
+                        <option value="DE">Allemagne</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-1">
+                    <button type="submit" disabled={savingNewAccount || !newAccountForm.name?.trim()}
+                      className="flex items-center gap-1.5 text-sm font-bold px-5 py-2.5 rounded-lg text-white disabled:opacity-50 transition-opacity hover:opacity-80"
+                      style={{ background: '#00AEEF' }}>
+                      <Save className="w-3.5 h-3.5" />
+                      {savingNewAccount ? 'Création…' : 'Créer l\'entreprise'}
+                    </button>
+                    <button type="button" onClick={() => setShowNewAccountForm(false)} className="text-sm font-semibold text-slate-400 hover:text-white px-4 py-2.5 rounded-lg transition-colors">
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {billingMsg && (
+              <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium ${billingMsg.ok ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                {billingMsg.ok ? <CheckCheck className="w-4 h-4 flex-shrink-0" /> : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
+                {billingMsg.text}
+              </div>
+            )}
+
+            {billingLoading ? (
+              <div className="py-12 text-center text-sm text-slate-400">Chargement…</div>
+            ) : billingAccounts.length === 0 ? (
+              <div className="py-12 text-center">
+                <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">Aucun compte entreprise associé à votre profil.</p>
+                <p className="text-slate-500 text-xs mt-1">Contactez-nous à <span className="text-slate-300">info@comink.be</span> pour lier votre compte.</p>
+              </div>
+            ) : (
+              billingAccounts.map((account: any) => {
+                const isOwner = account.role === 'owner'
+                const isEditing = editingBillingId === account.id
+                const bf = billingForm
+
+                return (
+                  <div key={account.id} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {/* En-tête carte */}
+                    <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: account.is_active ? 'rgba(0,174,239,0.04)' : undefined }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: account.is_active ? 'rgba(0,174,239,0.18)' : 'rgba(0,174,239,0.08)', border: `1px solid ${account.is_active ? 'rgba(0,174,239,0.4)' : 'rgba(0,174,239,0.15)'}` }}>
+                          <Building2 className="w-4 h-4" style={{ color: '#00AEEF' }} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-white">{account.name || 'Compte sans nom'}</p>
+                            {account.is_active && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,174,239,0.15)', color: '#00AEEF', border: '1px solid rgba(0,174,239,0.3)' }}>
+                                ACTIF
+                              </span>
+                            )}
+                          </div>
+                          {account.vat_number && <p className="text-xs text-slate-400">TVA : {account.vat_number}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOwner ? 'bg-yellow-500/15 text-yellow-400' : 'bg-white/8 text-slate-400'}`}>
+                          {isOwner ? 'Administrateur' : 'Utilisateur'}
+                        </span>
+                        {!account.is_active && !isEditing && (
+                          <button
+                            onClick={() => handleSetActiveAccount(account.id)}
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                            style={{ background: 'rgba(0,174,239,0.1)', border: '1px solid rgba(0,174,239,0.25)', color: '#00AEEF' }}
+                          >
+                            <CheckCircle className="w-3 h-3" /> Utiliser pour mes commandes
+                          </button>
+                        )}
+                        {isOwner && !isEditing && (
+                          <button
+                            onClick={() => openBillingEdit(account)}
+                            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition-colors"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                          >
+                            <Pencil className="w-3 h-3" /> Modifier
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Contenu */}
+                    {isEditing ? (
+                      <div className="px-5 py-5 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Raison sociale *</label>
+                            <input
+                              type="text"
+                              value={bf.name}
+                              onChange={e => setBillingForm(f => ({ ...f, name: e.target.value }))}
+                              placeholder="Comink SRL"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Numéro de TVA</label>
+                            <input
+                              type="text"
+                              value={bf.vat_number}
+                              onChange={e => setBillingForm(f => ({ ...f, vat_number: e.target.value }))}
+                              placeholder="BE0535752576"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Email de facturation</label>
+                            <input
+                              type="email"
+                              value={bf.email}
+                              onChange={e => setBillingForm(f => ({ ...f, email: e.target.value }))}
+                              placeholder="factures@entreprise.com"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Rue et numéro</label>
+                            <input
+                              type="text"
+                              value={bf.address_line1}
+                              onChange={e => setBillingForm(f => ({ ...f, address_line1: e.target.value }))}
+                              placeholder="Rue de Bruxelles 174h"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Complément d'adresse</label>
+                            <input
+                              type="text"
+                              value={bf.address_line2}
+                              onChange={e => setBillingForm(f => ({ ...f, address_line2: e.target.value }))}
+                              placeholder="Bâtiment B, 2e étage…"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Code postal</label>
+                            <input
+                              type="text"
+                              value={bf.postal_code}
+                              onChange={e => setBillingForm(f => ({ ...f, postal_code: e.target.value }))}
+                              placeholder="4340"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Ville</label>
+                            <input
+                              type="text"
+                              value={bf.city}
+                              onChange={e => setBillingForm(f => ({ ...f, city: e.target.value }))}
+                              placeholder="Awans"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Pays</label>
+                            <select
+                              value={bf.country}
+                              onChange={e => setBillingForm(f => ({ ...f, country: e.target.value }))}
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50"
+                              style={{ background: '#0d1f38', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            >
+                              <option value="BE">Belgique</option>
+                              <option value="FR">France</option>
+                              <option value="LU">Luxembourg</option>
+                              <option value="NL">Pays-Bas</option>
+                              <option value="DE">Allemagne</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">Téléphone</label>
+                            <input
+                              type="tel"
+                              value={bf.phone}
+                              onChange={e => setBillingForm(f => ({ ...f, phone: e.target.value }))}
+                              placeholder="+32 4 233 01 38"
+                              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 placeholder:text-slate-500"
+                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-2">
+                          <button
+                            onClick={() => handleSaveBilling(account.id)}
+                            disabled={savingBilling || !bf.name?.trim()}
+                            className="flex items-center gap-1.5 text-sm font-bold px-5 py-2.5 rounded-lg text-white disabled:opacity-50 transition-opacity hover:opacity-80"
+                            style={{ background: '#00AEEF' }}
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            {savingBilling ? 'Enregistrement…' : 'Enregistrer'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingBillingId(null); setBillingMsg(null) }}
+                            className="text-sm font-semibold text-slate-400 hover:text-white px-4 py-2.5 rounded-lg transition-colors"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                        {account.email && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Email de facturation</p>
+                            <p className="text-slate-200">{account.email}</p>
+                          </div>
+                        )}
+                        {account.phone && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Téléphone</p>
+                            <p className="text-slate-200">{account.phone}</p>
+                          </div>
+                        )}
+                        {account.address_line1 && (
+                          <div className="sm:col-span-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Adresse</p>
+                            <p className="text-slate-200">
+                              {account.address_line1}
+                              {account.address_line2 && <><br />{account.address_line2}</>}
+                              <br />{[account.postal_code, account.city].filter(Boolean).join(' ')} {account.country && `· ${account.country}`}
+                            </p>
+                          </div>
+                        )}
+                        {!account.email && !account.address_line1 && (
+                          <p className="sm:col-span-2 text-slate-500 text-xs italic py-2">
+                            Aucune coordonnée renseignée.{isOwner ? ' Cliquez sur "Modifier" pour compléter.' : ''}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
           </div>
         )}
 

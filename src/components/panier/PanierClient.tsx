@@ -1452,6 +1452,8 @@ export default function PanierClient() {
   const [savedShippingAddrs,   setSavedShippingAddrs]   = useState<ShippingAddress[]>([])
   const [selectedShippingId,   setSelectedShippingId]   = useState<string | 'same' | 'new'>('same')
   const [editingBilling,       setEditingBilling]       = useState(false)
+  const [clientAccounts,       setClientAccounts]       = useState<any[]>([])
+  const [selectedAccountId,    setSelectedAccountId]    = useState<string | null>(null)
 
   // ── Payment & Delivery ──
   const [payDeliveryConfig, setPayDeliveryConfig] = useState<any>(null)
@@ -1533,6 +1535,25 @@ export default function PanierClient() {
           if (dm.includes('parcel'))       setDeliveryMethod('parcel')
           else if (dm.includes('pickup'))  setDeliveryMethod('pickup')
           else if (dm.includes('express')) setDeliveryMethod('express')
+        }
+      })
+
+      // Comptes entreprise
+      fetch('/api/account/billing').then(r => r.ok ? r.json() : []).then((accounts: any[]) => {
+        if (!accounts.length) return
+        setClientAccounts(accounts)
+        const active = accounts.find((a: any) => a.is_active) ?? accounts[0]
+        setSelectedAccountId(active.id)
+        setBillingCompany(active.name ?? '')
+        setVatNumber(active.vat_number ?? '')
+        if (active.address_line1) {
+          setBillingAddr({
+            line1:       active.address_line1 ?? '',
+            line2:       active.address_line2 ?? '',
+            city:        active.city          ?? '',
+            postal_code: active.postal_code   ?? '',
+            country:     active.country       ?? 'BE',
+          })
         }
       })
 
@@ -2148,42 +2169,120 @@ export default function PanierClient() {
                 <span className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center" style={{ background: '#00AEEF' }}>1</span>
                 Adresse de facturation
               </h3>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+
+              {clientAccounts.length > 0 ? (
+                <div className="space-y-3">
+                  {/* Sélecteur si plusieurs comptes */}
+                  {clientAccounts.length > 1 && (
+                    <div className="space-y-2 mb-1">
+                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Facturer sur le compte</p>
+                      {clientAccounts.map((acc: any) => (
+                        <button key={acc.id} type="button"
+                          onClick={() => {
+                            setSelectedAccountId(acc.id)
+                            setBillingCompany(acc.name ?? '')
+                            setVatNumber(acc.vat_number ?? '')
+                            if (acc.address_line1) setBillingAddr({
+                              line1: acc.address_line1 ?? '', line2: acc.address_line2 ?? '',
+                              city: acc.city ?? '', postal_code: acc.postal_code ?? '', country: acc.country ?? 'BE',
+                            })
+                          }}
+                          className="w-full text-left rounded-lg px-3 py-2.5 flex items-center gap-3 transition-all"
+                          style={selectedAccountId === acc.id
+                            ? { border: '1px solid #00AEEF', background: 'rgba(0,174,239,0.08)' }
+                            : { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
+                        >
+                          <div className="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                            style={{ borderColor: selectedAccountId === acc.id ? '#00AEEF' : 'rgba(255,255,255,0.3)' }}>
+                            {selectedAccountId === acc.id && <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#00AEEF' }} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-white truncate">{acc.name}</p>
+                            {acc.vat_number && <p className="text-[10px] text-slate-400">TVA {acc.vat_number}</p>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Récap compte sélectionné */}
+                  {(() => {
+                    const acc = clientAccounts.find((a: any) => a.id === selectedAccountId)
+                    if (!acc) return null
+                    return (
+                      <div className="rounded-lg px-4 py-3 space-y-0.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 text-sm">
+                            <p className="font-bold text-white">{acc.name}</p>
+                            {acc.vat_number && <p className="text-xs text-slate-400">TVA : {acc.vat_number}</p>}
+                            {acc.address_line1 && (
+                              <p className="text-xs text-slate-400">
+                                {acc.address_line1}{acc.address_line2 ? `, ${acc.address_line2}` : ''} · {[acc.postal_code, acc.city].filter(Boolean).join(' ')}
+                              </p>
+                            )}
+                            {!acc.address_line1 && (
+                              <p className="text-xs text-amber-400 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Adresse manquante
+                              </p>
+                            )}
+                          </div>
+                          <Link href="/compte?tab=entreprise" className="flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                            style={{ background: 'rgba(255,255,255,0.06)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            Modifier →
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Nom du contact (toujours nécessaire) */}
                   <AddrField label="Nom / Prénom *" value={billingName} onChange={setBillingName} placeholder="Jean Dupont" />
-                  <AddrField label="Société" value={billingCompany} onChange={setBillingCompany} placeholder="Comink SRL" />
                 </div>
-                <AddrField label="Adresse *" value={billingAddr.line1} onChange={setB('line1')} placeholder="Rue de Bruxelles 174h" />
-                <AddrField label="Complément" value={billingAddr.line2} onChange={setB('line2')} placeholder="Bte 3, 2e étage…" />
-                <div className="grid grid-cols-3 gap-3">
-                  <AddrField label="Code postal *" value={billingAddr.postal_code} onChange={setB('postal_code')} placeholder="4340" />
-                  <div className="col-span-2">
-                    <AddrField label="Ville *" value={billingAddr.city} onChange={setB('city')} placeholder="Awans" />
+              ) : (
+                /* Pas de compte entreprise → formulaire manuel */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <AddrField label="Nom / Prénom *" value={billingName} onChange={setBillingName} placeholder="Jean Dupont" />
+                    <AddrField label="Société" value={billingCompany} onChange={setBillingCompany} placeholder="Comink SRL" />
                   </div>
+                  <AddrField label="Adresse *" value={billingAddr.line1} onChange={setB('line1')} placeholder="Rue de Bruxelles 174h" />
+                  <AddrField label="Complément" value={billingAddr.line2} onChange={setB('line2')} placeholder="Bte 3, 2e étage…" />
+                  <div className="grid grid-cols-3 gap-3">
+                    <AddrField label="Code postal *" value={billingAddr.postal_code} onChange={setB('postal_code')} placeholder="4340" />
+                    <div className="col-span-2">
+                      <AddrField label="Ville *" value={billingAddr.city} onChange={setB('city')} placeholder="Awans" />
+                    </div>
+                  </div>
+                  <CountrySelect value={billingAddr.country} onChange={setB('country')} />
+                  <div>
+                    <label className="block text-[11px] font-semibold mb-0.5" style={{ color: '#00AEEF' }}>N° TVA <span className="font-normal text-slate-500">(B2B — belge ou européen)</span></label>
+                    <input type="text" value={vatNumber} onChange={e => setVatNumber(e.target.value)} placeholder="BE0123456789 ou FR12345678901"
+                      className="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 text-white placeholder-slate-500"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                    {isBelgianVAT(vatNumber) && (
+                      <p className="mt-1 font-semibold flex items-center gap-1 text-[11px]" style={{ color: '#00AEEF' }}>
+                        <CheckCircle className="w-3 h-3" /> Numéro TVA belge — TVA 21% applicable
+                      </p>
+                    )}
+                    {intraCommunity && (
+                      <p className="text-[11px] text-emerald-400 mt-1 font-semibold flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> TVA intracommunautaire — 0% appliqué
+                      </p>
+                    )}
+                    {vatNumber && !isValidVAT(vatNumber) && (
+                      <p className="text-[11px] mt-1 font-semibold flex items-center gap-1" style={{ color: '#F5C400' }}>
+                        <AlertTriangle className="w-3 h-3" /> Format non reconnu (ex : BE0123456789 ou FR12345678901)
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Vous avez un compte entreprise ?{' '}
+                    <Link href="/compte?tab=entreprise" className="underline" style={{ color: '#00AEEF' }}>
+                      Gérer dans Mon compte →
+                    </Link>
+                  </p>
                 </div>
-                <CountrySelect value={billingAddr.country} onChange={setB('country')} />
-                <div>
-                  <label className="block text-[11px] font-semibold mb-0.5" style={{ color: '#00AEEF' }}>N° TVA <span className="font-normal text-slate-500">(B2B — belge ou européen)</span></label>
-                  <input type="text" value={vatNumber} onChange={e => setVatNumber(e.target.value)} placeholder="BE0123456789 ou FR12345678901"
-                    className="w-full rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 text-white placeholder-slate-500"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }} />
-                  {isBelgianVAT(vatNumber) && (
-                    <p className="mt-1 font-semibold flex items-center gap-1 text-[11px]" style={{ color: '#00AEEF' }}>
-                      <CheckCircle className="w-3 h-3" /> Numéro TVA belge — TVA 21% applicable
-                    </p>
-                  )}
-                  {intraCommunity && (
-                    <p className="text-[11px] text-emerald-400 mt-1 font-semibold flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" /> TVA intracommunautaire — 0% appliqué
-                    </p>
-                  )}
-                  {vatNumber && !isValidVAT(vatNumber) && (
-                    <p className="text-[11px] mt-1 font-semibold flex items-center gap-1" style={{ color: '#F5C400' }}>
-                      <AlertTriangle className="w-3 h-3" /> Format non reconnu (ex : BE0123456789 ou FR12345678901)
-                    </p>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
 
             {/* ── Adresse de livraison ── */}

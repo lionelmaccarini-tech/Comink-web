@@ -15,6 +15,7 @@ export interface ClientData {
   billing_city?: string
   billing_postal_code?: string
   billing_country?: string
+  free_shipping?: boolean
 }
 
 interface Props {
@@ -240,6 +241,7 @@ export default function ClientPicker({ value, onChange, vendeurName, vendeurId }
       billing_city:         client.billing_city         || '',
       billing_postal_code:  client.billing_postal_code  || '',
       billing_country:      client.billing_country      || 'BE',
+      free_shipping:        client.free_shipping        ?? false,
     })
     setQuery('')
     setOpen(false)

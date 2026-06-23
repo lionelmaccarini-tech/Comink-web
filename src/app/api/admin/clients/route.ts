@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('client_accounts')
     .select(
-      'id, name, email, phone, vat_number, address_line1, city, postal_code, country, is_active, discount_percent, billing_end_of_month, price_list_id, notes, created_at, updated_at',
+      'id, name, email, phone, vat_number, address_line1, city, postal_code, country, is_active, discount_percent, billing_end_of_month, free_shipping, payment_methods_override, delivery_methods_override, payment_deadline_days, price_list_id, notes, created_at, updated_at, client_account_members(count)',
       { count: 'exact' }
     )
     .order('name', { ascending: true })
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
 
   const enriched = (data ?? []).map((c: any) => ({
     ...c,
+    member_count: c.client_account_members?.[0]?.count ?? 0,
+    client_account_members: undefined,
     price_list: c.price_list_id ? priceListMap[c.price_list_id] ?? null : null,
   }))
 

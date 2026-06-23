@@ -38,9 +38,11 @@ export default function ResetPasswordPage() {
       if (session?.user) setPhase('update')
     })
 
-    // Écouter l'événement PASSWORD_RECOVERY (lien email cliqué)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setPhase('update')
+    // Écouter PASSWORD_RECOVERY (reset mdp) et SIGNED_IN (invitation)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session?.user)) {
+        setPhase('update')
+      }
     })
     return () => subscription.unsubscribe()
   }, [])

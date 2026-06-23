@@ -8,6 +8,11 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+const decodeLoc = (v: string | null) => {
+  if (!v) return v
+  try { return decodeURIComponent(v) } catch { return v }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AnalyticsData {
   range: number
@@ -368,7 +373,7 @@ export default function AnalyticsTab() {
                       <span className="flex items-center gap-1.5">
                         <span className="text-base">{flag(s.country_code)}</span>
                         <span className="text-slate-600">
-                          {[s.city, s.country].filter(Boolean).join(', ') || '—'}
+                          {[decodeLoc(s.city), s.country].filter(Boolean).join(', ') || '—'}
                         </span>
                       </span>
                     </td>
@@ -555,7 +560,7 @@ export default function AnalyticsTab() {
                       <td className="px-4 py-3">
                         <span className="flex items-center gap-1.5">
                           <span className="text-base">{flag(s.country_code)}</span>
-                          <span className="text-slate-600 text-xs">{[s.city, s.country].filter(Boolean).join(', ') || '—'}</span>
+                          <span className="text-slate-600 text-xs">{[decodeLoc(s.city), s.country].filter(Boolean).join(', ') || '—'}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3">

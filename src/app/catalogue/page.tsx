@@ -44,11 +44,20 @@ export default async function CataloguePage() {
     createServiceClient(),
   ])
 
-  const { data } = await supabase
-    .from('products')
-    .select('id, name, category, product_type, price_per_m2, standard_sizes, image_url, images, available, restricted_to_price_lists')
-    .eq('available', true)
-    .order('name')
+  const [{ data }, { data: cats }] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, name, category, product_type, price_per_m2, standard_sizes, image_url, images, available, restricted_to_price_lists')
+      .eq('available', true)
+      .order('name'),
+    supabase
+      .from('categories')
+      .select('id, label')
+      .eq('active', true),
+  ])
+
+  const categoryLabels: Record<string, string> = {}
+  for (const c of cats ?? []) categoryLabels[c.id] = c.label
 
   const allProducts = (data ?? []) as any[]
   const products = filterProductsByAccess(allProducts, userPriceListId, isStaff)
@@ -74,7 +83,7 @@ export default async function CataloguePage() {
         </div>
       </div>
       <Suspense fallback={<div className="animate-pulse p-8" />}>
-        <CatalogueClient initialProducts={products} />
+        <CatalogueClient initialProducts={products} categoryLabels={categoryLabels} />
       </Suspense>
     </div>
   )

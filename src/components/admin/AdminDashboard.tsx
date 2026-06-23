@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen, FileText, Brain, BarChart2 } from 'lucide-react'
+import { Package, Users, Search, Plus, Edit2, Trash2, Eye, RefreshCw, Settings, Tag, FolderOpen, Save, Loader2, Settings2, CreditCard, Copy, BookOpen, FileText, Brain, BarChart2, Share2, TrendingUp, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ProductModal from './ProductModal'
 import CollaborateursTab from './CollaborateursTab'
@@ -14,8 +14,11 @@ import BlogTab from './BlogTab'
 import LegalPagesTab from './LegalPagesTab'
 import AngeloKnowledgeTab from './AngeloKnowledgeTab'
 import AnalyticsTab from './AnalyticsTab'
+import SocialTab from './SocialTab'
+import VeilleTab from './VeilleTab'
+import AbandonedCartsTab from './AbandonedCartsTab'
 
-type TabId = 'produits' | 'clients' | 'listes-prix' | 'collaborateurs' | 'categories' | 'production' | 'payment' | 'blog' | 'legal' | 'angelo' | 'analytics' | 'parametres'
+type TabId = 'produits' | 'clients' | 'listes-prix' | 'collaborateurs' | 'categories' | 'production' | 'payment' | 'blog' | 'social' | 'veille' | 'paniers' | 'legal' | 'angelo' | 'analytics' | 'parametres'
 
 export default function AdminDashboard({ userEmail }: { userEmail: string }) {
   const searchParams = useSearchParams()
@@ -211,6 +214,9 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
             { id: 'production' as const, icon: Settings2, label: 'Production', badge: undefined },
             { id: 'payment' as const, icon: CreditCard, label: 'Paiement & Livraison', badge: undefined },
             { id: 'blog' as const, icon: BookOpen, label: 'Blog', badge: undefined },
+            { id: 'social' as const, icon: Share2, label: 'Réseaux sociaux', badge: undefined },
+            { id: 'veille' as const, icon: TrendingUp, label: 'Veille marché', badge: undefined },
+            { id: 'paniers' as const, icon: ShoppingCart, label: 'Paniers abandonnés', badge: undefined },
             { id: 'legal' as const, icon: FileText, label: 'Pages légales', badge: undefined },
             { id: 'analytics' as const, icon: BarChart2, label: 'Analytics', badge: undefined },
             { id: 'angelo' as const, icon: Brain, label: 'Angelo IA', badge: undefined },
@@ -409,6 +415,15 @@ export default function AdminDashboard({ userEmail }: { userEmail: string }) {
 
         {/* ── BLOG ── */}
         {tab === 'blog' && <BlogTab />}
+
+        {/* ── RÉSEAUX SOCIAUX ── */}
+        {tab === 'social' && <SocialTab />}
+
+        {/* ── VEILLE MARCHÉ ── */}
+        {tab === 'veille' && <VeilleTab />}
+
+        {/* ── PANIERS ABANDONNÉS ── */}
+        {tab === 'paniers' && <AbandonedCartsTab />}
 
         {/* ── ANALYTICS ── */}
         {tab === 'analytics' && <AnalyticsTab />}

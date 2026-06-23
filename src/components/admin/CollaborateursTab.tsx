@@ -39,7 +39,7 @@ export default function CollaborateursTab() {
   async function loadUsers() {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/collaborateurs')
+      const res = await fetch('/api/admin/collaborateurs', { cache: 'no-store' })
       const data = await res.json()
       setUsers(Array.isArray(data) ? data : [])
     } finally {
@@ -62,9 +62,10 @@ export default function CollaborateursTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       if (data.already_exists) {
-        setCreateMsg({ type: 'ok', text: `Compte existant — rôle mis à jour en "${createRole}" pour ${createEmail}` })
+        setCreateMsg({ type: 'ok', text: data.email_sent ? `Invitation renvoyée à ${createEmail}` : `Rôle mis à jour — copie le lien ci-dessous` })
+        if (data.invite_url) setInviteUrl(data.invite_url)
       } else {
-        setCreateMsg({ type: 'ok', text: data.email_sent ? `Invitation envoyée à ${data.email}` : `Compte créé — email non envoyé, copie le lien ci-dessous` })
+        setCreateMsg({ type: 'ok', text: data.email_sent ? `Invitation envoyée à ${data.email}` : `Compte créé — copie le lien ci-dessous` })
         if (data.invite_url) setInviteUrl(data.invite_url)
       }
       setCreateName(''); setCreateEmail('')
@@ -98,6 +99,9 @@ export default function CollaborateursTab() {
     }
   }
 
+  const [resending, setResending] = useState<string | null>(null)
+  const [resendResult, setResendResult] = useState<Record<string, { url?: string; ok: boolean; msg: string }>>({})
+
   async function changeRole(id: string, role: string) {
     await fetch('/api/admin/collaborateurs', {
       method: 'PUT',
@@ -105,6 +109,25 @@ export default function CollaborateursTab() {
       body: JSON.stringify({ id, role }),
     })
     setUsers(u => u.map(x => x.id === id ? { ...x, role } : x))
+  }
+
+  async function resendInvite(u: any) {
+    setResending(u.id)
+    setResendResult(r => ({ ...r, [u.id]: { ok: false, msg: '' } }))
+    try {
+      const res = await fetch('/api/admin/collaborateurs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resend_invite', email: u.email, full_name: u.full_name, role: u.role }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setResendResult(r => ({ ...r, [u.id]: { ok: true, msg: data.email_sent ? 'Email envoyé ✓' : 'Copie le lien ↓', url: data.invite_url } }))
+    } catch (e: any) {
+      setResendResult(r => ({ ...r, [u.id]: { ok: false, msg: e.message } }))
+    } finally {
+      setResending(null)
+    }
   }
 
   const filtered = users.filter(u =>
@@ -294,14 +317,35 @@ export default function CollaborateursTab() {
                     {new Date(u.created_at).toLocaleDateString('fr-BE', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    {u.role !== 'admin' && (
+                    <div className="flex items-center justify-end gap-3">
                       <button
-                        onClick={() => changeRole(u.id, 'user')}
-                        className="text-xs text-red-400 hover:text-red-600 font-medium transition-colors"
-                        title="Révoquer l'accès (remet en utilisateur)"
+                        onClick={() => resendInvite(u)}
+                        disabled={resending === u.id}
+                        className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors disabled:opacity-50"
+                        title="Renvoyer un lien d'invitation"
                       >
-                        Révoquer
+                        {resending === u.id ? 'Envoi…' : 'Renvoyer'}
                       </button>
+                      {u.role !== 'admin' && (
+                        <button
+                          onClick={() => changeRole(u.id, 'user')}
+                          className="text-xs text-red-400 hover:text-red-600 font-medium transition-colors"
+                          title="Révoquer l'accès (remet en utilisateur)"
+                        >
+                          Révoquer
+                        </button>
+                      )}
+                    </div>
+                    {resendResult[u.id]?.msg && (
+                      <p className={cn('text-xs mt-1', resendResult[u.id].ok ? 'text-green-600' : 'text-red-500')}>
+                        {resendResult[u.id].msg}
+                      </p>
+                    )}
+                    {resendResult[u.id]?.url && (
+                      <div className="mt-1.5 flex gap-1 items-center">
+                        <input readOnly value={resendResult[u.id].url!} className="w-40 text-[10px] border border-slate-200 rounded px-1.5 py-1 font-mono truncate" />
+                        <button onClick={() => navigator.clipboard.writeText(resendResult[u.id].url!)} className="text-[10px] bg-slate-700 text-white px-2 py-1 rounded">Copier</button>
+                      </div>
                     )}
                   </td>
                 </tr>

@@ -115,6 +115,12 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
 
+    // ── Marquer le panier comme converti ─────────────────────────────────────
+    void serviceClient.from('carts')
+      .update({ converted_at: new Date().toISOString(), item_count: 0 })
+      .eq('user_id', user.id)
+      .is('converted_at', null)
+
     // ── Envoi email de confirmation au client ─────────────────────────────────
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://comink.be'
     const FROM    = process.env.RESEND_FROM_EMAIL   || 'noreply@comink.be'
