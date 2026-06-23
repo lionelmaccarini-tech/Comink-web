@@ -12,14 +12,19 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, email, company, phone, vat_number, billing_line1, billing_line2, billing_city, billing_postal_code, billing_country, role')
+      .select('id, full_name, email, company, phone, vat_number, billing_line1, billing_line2, billing_city, billing_postal_code, billing_country, role, client_account_id, client_account:client_account_id(free_shipping)')
       .or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`)
       .in('role', ['user', 'admin', 'collaborateur', 'vendeur'])  // exclude producteur
       .order('full_name')
       .limit(10)
 
     if (error) throw error
-    return NextResponse.json(data ?? [])
+    const flat = (data ?? []).map((p: any) => ({
+      ...p,
+      free_shipping: p.client_account?.free_shipping ?? false,
+      client_account: undefined,
+    }))
+    return NextResponse.json(flat)
   } catch (err) {
     console.error('[crm/clients GET]', err)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

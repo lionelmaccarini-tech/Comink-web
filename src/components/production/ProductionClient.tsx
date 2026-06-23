@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { LayoutGrid, List, Calendar, Search, RefreshCw, ChevronDown, Truck, Download, X, CheckSquare, Factory, PackageSearch } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -66,8 +67,17 @@ export default function ProductionClient({ lines: initialLines, statuses, staff,
       assignee: l.assignee_id ? (staff.find(s => s.id === l.assignee_id) ?? null) : null,
     }))
 
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [lines, setLines] = useState<ProductionLine[]>(() => enrichLines(initialLines))
-  const [view, setView] = useState<ViewType>('calendar')
+  const [view, setView] = useState<ViewType>((searchParams.get('view') as ViewType) || 'calendar')
+
+  function changeView(v: ViewType) {
+    setView(v)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('view', v)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
   const [selectedLine, setSelectedLine] = useState<ProductionLine | null>(null)
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null)
@@ -201,12 +211,12 @@ export default function ProductionClient({ lines: initialLines, statuses, staff,
               </h1>
               {/* Switch planning */}
               <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
-                <Link href="/production"
+                <Link href={`/production?view=${view}`}
                   className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                     mode === 'production' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')}>
                   <Factory className="w-3.5 h-3.5" /> Production
                 </Link>
-                <Link href="/production/sous-traitance"
+                <Link href={`/production/sous-traitance?view=${view}`}
                   className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                     mode === 'sous-traitance' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50')}>
                   <PackageSearch className="w-3.5 h-3.5" /> Sous-traitance
@@ -224,7 +234,7 @@ export default function ProductionClient({ lines: initialLines, statuses, staff,
               { id: 'calendar' as ViewType, icon: Calendar,  label: 'Calendrier' },
               { id: 'deliveries' as ViewType, icon: Truck,   label: 'Livraisons' },
             ]).map(({ id, icon: Icon, label }) => (
-              <button key={id} onClick={() => setView(id)}
+              <button key={id} onClick={() => changeView(id)}
                 className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all',
                   view === id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50')}>
                 <Icon className="w-3.5 h-3.5" /> {label}

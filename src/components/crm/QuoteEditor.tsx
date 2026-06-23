@@ -253,15 +253,15 @@ export default function QuoteEditor({ initialData }: Props) {
       setCurrentUserRole(profile?.role ?? null)
     })
 
-    // Auto-compléter l'adresse de facturation depuis le profil client si elle est absente
-    if (isEdit && initialData?.client_email && !initialData?.billing_line1) {
+    // Charger les données client (adresse + free_shipping) à l'édition
+    if (isEdit && initialData?.client_email) {
       fetch(`/api/crm/clients?search=${encodeURIComponent(initialData.client_email)}`)
         .then(r => r.json())
         .then((results: ClientData[]) => {
           const match = results.find((c: ClientData) =>
             c.email?.toLowerCase() === initialData.client_email?.toLowerCase()
           )
-          if (match && (match.billing_line1 || match.billing_city || match.phone || match.vat_number || match.company)) {
+          if (match) {
             setClient(prev => ({
               ...prev,
               id:                  match.id                  || prev.id,
@@ -273,6 +273,7 @@ export default function QuoteEditor({ initialData }: Props) {
               billing_city:        match.billing_city        || prev.billing_city,
               billing_postal_code: match.billing_postal_code || prev.billing_postal_code,
               billing_country:     match.billing_country     || prev.billing_country || 'BE',
+              free_shipping:       match.free_shipping       ?? prev.free_shipping   ?? false,
             }))
           }
         })
@@ -321,6 +322,11 @@ export default function QuoteEditor({ initialData }: Props) {
 
   // ── Auto-compute delivery cost when inputs change ──────────────────────────
   useEffect(() => {
+    if (client.free_shipping && deliveryMethod !== 'pickup') {
+      setDeliveryCostAuto(0)
+      if (!deliveryCostManual) setDeliveryCost(0)
+      return
+    }
     if (!deliverySettings || deliveryMethod === 'pickup') {
       setDeliveryCostAuto(0)
       if (!deliveryCostManual) setDeliveryCost(0)
@@ -331,7 +337,7 @@ export default function QuoteEditor({ initialData }: Props) {
     const auto = calcDeliveryCost(deliveryMethod, linesTotal, deliveryCountry, km, deliverySettings)
     setDeliveryCostAuto(auto)
     if (!deliveryCostManual) setDeliveryCost(auto)
-  }, [deliveryMethod, lines, deliveryCountry, deliveryKm, deliverySettings, deliveryCostManual])
+  }, [deliveryMethod, lines, deliveryCountry, deliveryKm, deliverySettings, deliveryCostManual, client.free_shipping])
 
   // ── Distance calculator (express) ─────────────────────────────────────────
   const calcDistance = useCallback(async () => {
@@ -751,7 +757,14 @@ export default function QuoteEditor({ initialData }: Props) {
 
           {/* Delivery */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="font-semibold text-slate-800 mb-4">Mode de livraison</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-slate-800">Mode de livraison</h2>
+              {client.free_shipping && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+                  <Truck className="w-3.5 h-3.5" /> Franco de port
+                </span>
+              )}
+            </div>
 
             {/* Method cards */}
             <div className="grid sm:grid-cols-3 gap-3 mb-5">

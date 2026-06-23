@@ -12,9 +12,10 @@ const ALL = 'all'
 
 function catColor(_cat: string) { return C.cyan }
 
-interface Props { initialProducts: Product[] }
+interface Props { initialProducts: Product[]; categoryLabels?: Record<string, string> }
 
-export default function CatalogueClient({ initialProducts }: Props) {
+export default function CatalogueClient({ initialProducts, categoryLabels: dbLabels = {} }: Props) {
+  const catLabel = (cat: string) => dbLabels[cat] || CATEGORY_LABELS[cat] || cat
   const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [selectedType, setSelectedType] = useState(searchParams.get('type') || ALL)
@@ -116,7 +117,7 @@ export default function CatalogueClient({ initialProducts }: Props) {
                   style={selectedCategory === cat
                     ? { background: C.cyan, color: '#fff', border: `1px solid ${C.cyan}` }
                     : { background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.12)' }}>
-                  {CATEGORY_LABELS[cat] || cat}
+                  {catLabel(cat)}
                 </button>
               ))}
             </div>
@@ -205,7 +206,7 @@ export default function CatalogueClient({ initialProducts }: Props) {
                 <div className="px-3 py-2.5 flex items-center justify-between"
                   style={{ background: '#0d2240', borderTop: `2px solid ${C.cyan}40` }}>
                   <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: accent }}>
-                    {CATEGORY_LABELS[product.category] || product.category}
+                    {catLabel(product.category)}
                   </p>
                   {minPrice && (
                     <p className="text-sm font-black" style={{ color: '#ffffff' }}>{minPrice}</p>
